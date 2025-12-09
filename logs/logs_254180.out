@@ -1,0 +1,40 @@
+Tue Dec  9 21:49:57 2025       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 550.120                Driver Version: 550.120        CUDA Version: 12.4     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA RTX A5000               On  |   00000000:85:00.0 Off |                  Off |
+| 30%   29C    P5             31W /  230W |       2MiB /  24564MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   1  NVIDIA RTX A5000               On  |   00000000:86:00.0 Off |                  Off |
+| 30%   28C    P5             31W /  230W |       2MiB /  24564MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   2  NVIDIA RTX A5000               On  |   00000000:C5:00.0 Off |                  Off |
+| 30%   30C    P5             31W /  230W |       2MiB /  24564MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   3  NVIDIA RTX A5000               On  |   00000000:C6:00.0 Off |                  Off |
+| 30%   30C    P5             31W /  230W |       2MiB /  24564MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Loading model from models/DS-qwen-7B/DeepSeek-R1-Distill-Qwen-7B...
+
+Prompt: Hello, how are you?
+
+Generating...
+
+Generated text:
+Hello, how are you? I'm trying to solve this problem about finding the maximum and minimum values of a function f(x, y) = x^2 + y^2 - 2x - 4y + 5 over a triangular region bounded by the points (
