@@ -1,1 +1,2 @@
-cd /specific/scratches/parallel/evyataroren-2025-12-31/inter_2025
+PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+cd PROJECT_ROOT
