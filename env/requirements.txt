@@ -1,0 +1,92 @@
+accelerate
+# aiohappyeyeballs
+# aiohttp
+# aiosignal
+annotated-types
+# neural_compressor
+# anyio
+attrs
+# auto_gptq
+# autoawq
+bitsandbytes
+# certifi
+# charset-normalizer
+datasets
+dill
+# diskcache
+# faiss-cpu
+# filelock
+# frozenlist
+# fsspec
+# gekko
+# h11
+# hf-xet
+hf_transfer
+# httpcore
+# httpx
+huggingface-hub
+# idna
+# Jinja2
+# joblib
+# MarkupSafe
+mpmath
+# multidict
+# multiprocess
+# networkx
+numpy
+packaging
+pandas
+# peft
+# pillow
+# propcache
+psutil
+pyarrow
+pydantic
+pydantic_core
+# python-dateutil
+# pytz
+# PyYAML
+regex
+requests
+# rouge
+safetensors
+scikit-learn
+scipy
+sentencepiece
+# six
+# sniffio
+# sympy
+# threadpoolctl
+tokenizers
+tqdm
+transformers
+triton
+typing-inspection
+typing_extensions
+# tzdata
+# urllib3
+# xxhash
+# yarl
+# zstandard
+ninja
+# requests_toolbelt
+llama_cpp_python
+# psycopg
+# torch
+# torchaudio
+# torchvision
+# nvidia-cublas-cu12
+# nvidia-cuda-cupti-cu12
+# nvidia-cuda-nvrtc-cu12
+# nvidia-cuda-runtime-cu12
+# nvidia-cudnn-cu12
+# nvidia-cufft-cu12
+# nvidia-cufile-cu12
+# nvidia-curand-cu12
+# nvidia-cusolver-cu12
+# nvidia-cusparse-cu12
+# nvidia-cusparselt-cu12
+# nvidia-nccl-cu12
+# nvidia-nvjitlink-cu12
+# nvidia-nvtx-cu12
+

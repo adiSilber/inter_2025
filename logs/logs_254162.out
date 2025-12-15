@@ -1,0 +1,60 @@
+Tue Dec  9 22:03:04 2025       
++---------------------------------------------------------------------------------------+
+| NVIDIA-SMI 535.183.01             Driver Version: 535.183.01   CUDA Version: 12.2     |
+|-----------------------------------------+----------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |         Memory-Usage | GPU-Util  Compute M. |
+|                                         |                      |               MIG M. |
+|=========================================+======================+======================|
+|   0  NVIDIA L40S                    Off | 00000000:25:00.0 Off |                    0 |
+| N/A   45C    P0              86W / 350W |      0MiB / 46068MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   1  NVIDIA L40S                    Off | 00000000:26:00.0 Off |                    0 |
+| N/A   41C    P0              82W / 350W |    630MiB / 46068MiB |      1%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   2  NVIDIA L40S                    Off | 00000000:45:00.0 Off |                    0 |
+| N/A   36C    P0              80W / 350W |    628MiB / 46068MiB |      1%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   3  NVIDIA L40S                    Off | 00000000:46:00.0 Off |                    0 |
+| N/A   38C    P0              82W / 350W |  29018MiB / 46068MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   4  NVIDIA L40S                    Off | 00000000:A5:00.0 Off |                    0 |
+| N/A   23C    P8              22W / 350W |      0MiB / 46068MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   5  NVIDIA L40S                    Off | 00000000:A6:00.0 Off |                    0 |
+| N/A   23C    P8              20W / 350W |      0MiB / 46068MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   6  NVIDIA L40S                    Off | 00000000:C5:00.0 Off |                    0 |
+| N/A   40C    P0              84W / 350W |  38756MiB / 46068MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   7  NVIDIA L40S                    Off | 00000000:C6:00.0 Off |                    0 |
+| N/A   32C    P0              82W / 350W |    620MiB / 46068MiB |      3%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+                                                                                         
++---------------------------------------------------------------------------------------+
+| Processes:                                                                            |
+|  GPU   GI   CI        PID   Type   Process name                            GPU Memory |
+|        ID   ID                                                             Usage      |
+|=======================================================================================|
+|    1   N/A  N/A   4034788      C   ...envs/top_features_as_ids/bin/python      622MiB |
+|    2   N/A  N/A   4018209      C   ...envs/top_features_as_ids/bin/python      620MiB |
+|    3   N/A  N/A   3985221      C   ...uslik/miniconda3/envs/he/bin/python    29010MiB |
+|    6   N/A  N/A   4041621      C   ...uslik/miniconda3/envs/he/bin/python    38748MiB |
+|    7   N/A  N/A   4020210      C   ...envs/top_features_as_ids/bin/python      612MiB |
++---------------------------------------------------------------------------------------+
+Loading model from models/DS-qwen-7B/DeepSeek-R1-Distill-Qwen-7B...
+
+Prompt: Hello, how are you?
+
+Generating...
+
+Generated text:
+Hello, how are you? I have a problem: I need to find all positive integers \( n \6 such that \( n^2 - 6n + 1 \) is a perfect square. I have a solution, but I'm not sure if it's correct
