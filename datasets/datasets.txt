@@ -1,0 +1,5 @@
+HuggingFaceH4/MATH-500
+openai/openai_humaneval
+Idavidrein/gpqa
+allenai/ai2_arc
+di-zhang-fdu/AIME_1983_2024

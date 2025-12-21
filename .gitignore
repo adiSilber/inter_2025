@@ -1,2 +1,4 @@
 .miniconda3/
 models/
+datasets/datasets
+.vscode
