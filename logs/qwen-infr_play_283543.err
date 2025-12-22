@@ -1,0 +1,6 @@
+/var/spool/slurmd/job283543/slurm_script: line 15: scripts/base.sh: No such file or directory
+/var/spool/slurmd/job283543/slurm_script: line 16: scripts/activate_env.sh: No such file or directory
+  File "play/check_abillity_to_recover.py", line 65
+    def load_prompts_from_directory(directory: Path) -> List[Dict[str, str]]:
+                                             ^
+SyntaxError: invalid syntax
