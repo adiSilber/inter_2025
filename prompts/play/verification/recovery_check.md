@@ -1,3 +1,4 @@
+<|begin_of_sentence|><|User|> 
 You are a judge evaluating whether a model's response correctly answers a math problem.
 
 Problem: """ {question} """
@@ -14,3 +15,5 @@ Does the model's response contain the correct answer to the problem? Consider th
 Think through your evaluation, then respond with ONLY "yes" or "no" at the end.
 
 Judgment:
+
+<|Assistant|>
