@@ -45,7 +45,8 @@ SAMPLING_PARAMS = SamplingParams(
     temperature=0.7,
     top_p=0.9,
     max_tokens=2048,
-    stop=["<|endoftext|>", "\n\n\n"]
+    stop=["<|endoftext|>", "\n\n\n"],
+    skip_special_tokens=False  # Don't skip special tokens in output
 )
 
 # Recovery verification parameters (judge model)
@@ -53,6 +54,7 @@ RECOVERY_SAMPLING_PARAMS = SamplingParams(
     temperature=0.3,
     top_p=0.95,
     max_tokens=512,  # Enough for thinking + yes/no answer
+    skip_special_tokens=False  # Don't skip special tokens in output
 )
 
 
@@ -267,6 +269,7 @@ def run_prompt_injection_experiment():
         dtype="float16",
         trust_remote_code=True,
         gpu_memory_utilization=0.9,
+        skip_tokenizer_init=False,
     )
     
     # Load questions
@@ -314,7 +317,12 @@ def run_prompt_injection_experiment():
     
     # Generate initial responses (before injection)
     print("  Generating initial responses...")
-    initial_outputs = llm.generate(batch_prompts, SAMPLING_PARAMS)
+    # Use add_special_tokens=False to only add BOS, no chat template tokens
+    initial_outputs = llm.generate(
+        batch_prompts, 
+        SAMPLING_PARAMS,
+        use_tqdm=False
+    )
     
     # Now create injected versions
     print("  Creating injected versions...")
@@ -344,7 +352,12 @@ def run_prompt_injection_experiment():
     
     # Generate continuations after injection
     print("  Generating post-injection continuations...")
-    injected_outputs = llm.generate(injected_prompts, SAMPLING_PARAMS)
+    # Use add_special_tokens=False to only add BOS, no chat template tokens
+    injected_outputs = llm.generate(
+        injected_prompts,
+        SAMPLING_PARAMS,
+        use_tqdm=False
+    )
     
     # Process results
     print(f"\n[6/6] Processing results and running recovery verification...")
@@ -375,7 +388,12 @@ def run_prompt_injection_experiment():
         for r in results
     ]
     
-    recovery_outputs = llm.generate(recovery_prompts, RECOVERY_SAMPLING_PARAMS)
+    # Use add_special_tokens=False to only add BOS, no chat template tokens
+    recovery_outputs = llm.generate(
+        recovery_prompts,
+        RECOVERY_SAMPLING_PARAMS,
+        use_tqdm=False
+    )
     
     for result, output in zip(results, recovery_outputs):
         judge_response = output.outputs[0].text.strip()
