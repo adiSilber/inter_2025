@@ -1,0 +1,62 @@
+The argument `trust_remote_code` is to be used with Auto classes. It has no effect here and is ignored.
+[0;36m(EngineCore_DP0 pid=143621)[0;0m Process EngineCore_DP0:
+[0;36m(EngineCore_DP0 pid=143621)[0;0m Traceback (most recent call last):
+[0;36m(EngineCore_DP0 pid=143621)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/multiprocessing/process.py", line 314, in _bootstrap
+[0;36m(EngineCore_DP0 pid=143621)[0;0m     self.run()
+[0;36m(EngineCore_DP0 pid=143621)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/multiprocessing/process.py", line 108, in run
+[0;36m(EngineCore_DP0 pid=143621)[0;0m     self._target(*self._args, **self._kwargs)
+[0;36m(EngineCore_DP0 pid=143621)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 870, in run_engine_core
+[0;36m(EngineCore_DP0 pid=143621)[0;0m     raise e
+[0;36m(EngineCore_DP0 pid=143621)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 857, in run_engine_core
+[0;36m(EngineCore_DP0 pid=143621)[0;0m     engine_core = EngineCoreProc(*args, **kwargs)
+[0;36m(EngineCore_DP0 pid=143621)[0;0m                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=143621)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 637, in __init__
+[0;36m(EngineCore_DP0 pid=143621)[0;0m     super().__init__(
+[0;36m(EngineCore_DP0 pid=143621)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 102, in __init__
+[0;36m(EngineCore_DP0 pid=143621)[0;0m     self.model_executor = executor_class(vllm_config)
+[0;36m(EngineCore_DP0 pid=143621)[0;0m                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=143621)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/executor/abstract.py", line 101, in __init__
+[0;36m(EngineCore_DP0 pid=143621)[0;0m     self._init_executor()
+[0;36m(EngineCore_DP0 pid=143621)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/executor/uniproc_executor.py", line 29, in _init_executor
+[0;36m(EngineCore_DP0 pid=143621)[0;0m     self.driver_worker = WorkerWrapperBase(vllm_config=self.vllm_config, rpc_rank=0)
+[0;36m(EngineCore_DP0 pid=143621)[0;0m                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=143621)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/worker/worker_base.py", line 211, in __init__
+[0;36m(EngineCore_DP0 pid=143621)[0;0m     init_cached_hf_modules()
+[0;36m(EngineCore_DP0 pid=143621)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/utils/import_utils.py", line 34, in init_cached_hf_modules
+[0;36m(EngineCore_DP0 pid=143621)[0;0m     init_hf_modules()
+[0;36m(EngineCore_DP0 pid=143621)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/transformers/dynamic_module_utils.py", line 96, in init_hf_modules
+[0;36m(EngineCore_DP0 pid=143621)[0;0m     os.makedirs(HF_MODULES_CACHE, exist_ok=True)
+[0;36m(EngineCore_DP0 pid=143621)[0;0m   File "<frozen os>", line 215, in makedirs
+[0;36m(EngineCore_DP0 pid=143621)[0;0m   File "<frozen os>", line 215, in makedirs
+[0;36m(EngineCore_DP0 pid=143621)[0;0m   File "<frozen os>", line 215, in makedirs
+[0;36m(EngineCore_DP0 pid=143621)[0;0m   File "<frozen os>", line 225, in makedirs
+[0;36m(EngineCore_DP0 pid=143621)[0;0m PermissionError: [Errno 13] Permission denied: '/a/home/cc/students/cs/evyataroren'
+Traceback (most recent call last):
+  File "/home/ADV_2526a/evyataroren/inter_2025/play/check_abillity_to_recover.py", line 455, in <module>
+    run_prompt_injection_experiment()
+  File "/home/ADV_2526a/evyataroren/inter_2025/play/check_abillity_to_recover.py", line 267, in run_prompt_injection_experiment
+    llm = LLM(
+          ^^^^
+  File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/entrypoints/llm.py", line 351, in __init__
+    self.llm_engine = LLMEngine.from_engine_args(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/llm_engine.py", line 183, in from_engine_args
+    return cls(
+           ^^^^
+  File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/llm_engine.py", line 109, in __init__
+    self.engine_core = EngineCoreClient.make_client(
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/core_client.py", line 93, in make_client
+    return SyncMPClient(vllm_config, executor_class, log_stats)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/core_client.py", line 648, in __init__
+    super().__init__(
+  File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/core_client.py", line 477, in __init__
+    with launch_core_engines(vllm_config, executor_class, log_stats) as (
+  File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/contextlib.py", line 144, in __exit__
+    next(self.gen)
+  File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/utils.py", line 903, in launch_core_engines
+    wait_for_engine_startup(
+  File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/utils.py", line 960, in wait_for_engine_startup
+    raise RuntimeError(
+RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {'EngineCore_DP0': 1}

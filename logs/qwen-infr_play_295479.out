@@ -1,0 +1,209 @@
+Mon Dec 22 12:06:31 2025       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 550.120                Driver Version: 550.120        CUDA Version: 12.4     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA RTX A5000               On  |   00000000:01:00.0 Off |                  Off |
+| 30%   38C    P5             36W /  230W |       2MiB /  24564MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   1  NVIDIA RTX A5000               On  |   00000000:21:00.0 Off |                  Off |
+| 30%   36C    P5             19W /  230W |       2MiB /  24564MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   2  NVIDIA RTX A5000               On  |   00000000:41:00.0 Off |                  Off |
+| 30%   32C    P5             15W /  230W |       2MiB /  24564MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   3  NVIDIA RTX A5000               On  |   00000000:61:00.0 Off |                  Off |
+| 30%   33C    P5             17W /  230W |       2MiB /  24564MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   4  NVIDIA RTX A5000               On  |   00000000:81:00.0 Off |                  Off |
+| 30%   28C    P5             31W /  230W |       2MiB /  24564MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   5  NVIDIA RTX A5000               On  |   00000000:A1:00.0 Off |                  Off |
+| 30%   28C    P5             31W /  230W |    1973MiB /  24564MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   6  NVIDIA RTX A5000               On  |   00000000:C1:00.0 Off |                  Off |
+| 30%   44C    P2            112W /  230W |   18707MiB /  24564MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   7  NVIDIA RTX A5000               On  |   00000000:E1:00.0 Off |                  Off |
+| 30%   50C    P2            150W /  230W |   14449MiB /  24564MiB |    100%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|    5   N/A  N/A    139221      C   ...dt/anaconda3/envs/spider/bin/python       1966MiB |
+|    6   N/A  N/A    134199      C   ...s/almogt/sampled-kd/venv/bin/python      18700MiB |
+|    7   N/A  N/A    134199      C   ...s/almogt/sampled-kd/venv/bin/python      14442MiB |
++-----------------------------------------------------------------------------------------+
+================================================================================
+PROMPT INJECTION RECOVERY EXPERIMENT
+================================================================================
+
+[1/6] Loading prompts from markdown files...
+  Loaded 2 question format prompts (using top 2):
+    1. chain_of_thought
+    2. conversational_tutor
+  Loaded 4 injection texts (using top 4):
+    1. authority_claim
+    2. fake_completion
+    3. system_override
+    4. topic_change
+
+Model: /home/ADV_2526a/evyataroren/inter_2025/models/DS-qwen-7B/DeepSeek-R1-Distill-Qwen-7B
+Questions: 10
+Prompts (K): 2
+Injections (M): 4
+Total combinations: 80
+================================================================================
+
+[2/6] Loading model with vLLM...
+INFO 12-22 12:08:21 [utils.py:253] non-default args: {'trust_remote_code': True, 'dtype': 'float16', 'max_model_len': 4096, 'disable_log_stats': True, 'model': '/home/ADV_2526a/evyataroren/inter_2025/models/DS-qwen-7B/DeepSeek-R1-Distill-Qwen-7B'}
+ERROR 12-22 12:08:38 [registry.py:673] Error saving model info cache.
+ERROR 12-22 12:08:38 [registry.py:673] Traceback (most recent call last):
+ERROR 12-22 12:08:38 [registry.py:673]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/pathlib.py", line 1116, in mkdir
+ERROR 12-22 12:08:38 [registry.py:673]     os.mkdir(self, mode)
+ERROR 12-22 12:08:38 [registry.py:673] FileNotFoundError: [Errno 2] No such file or directory: '/a/home/cc/students/cs/evyataroren/.cache/vllm/modelinfos'
+ERROR 12-22 12:08:38 [registry.py:673] 
+ERROR 12-22 12:08:38 [registry.py:673] During handling of the above exception, another exception occurred:
+ERROR 12-22 12:08:38 [registry.py:673] 
+ERROR 12-22 12:08:38 [registry.py:673] Traceback (most recent call last):
+ERROR 12-22 12:08:38 [registry.py:673]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/pathlib.py", line 1116, in mkdir
+ERROR 12-22 12:08:38 [registry.py:673]     os.mkdir(self, mode)
+ERROR 12-22 12:08:38 [registry.py:673] FileNotFoundError: [Errno 2] No such file or directory: '/a/home/cc/students/cs/evyataroren/.cache/vllm'
+ERROR 12-22 12:08:38 [registry.py:673] 
+ERROR 12-22 12:08:38 [registry.py:673] During handling of the above exception, another exception occurred:
+ERROR 12-22 12:08:38 [registry.py:673] 
+ERROR 12-22 12:08:38 [registry.py:673] Traceback (most recent call last):
+ERROR 12-22 12:08:38 [registry.py:673]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/pathlib.py", line 1116, in mkdir
+ERROR 12-22 12:08:38 [registry.py:673]     os.mkdir(self, mode)
+ERROR 12-22 12:08:38 [registry.py:673] FileNotFoundError: [Errno 2] No such file or directory: '/a/home/cc/students/cs/evyataroren/.cache'
+ERROR 12-22 12:08:38 [registry.py:673] 
+ERROR 12-22 12:08:38 [registry.py:673] During handling of the above exception, another exception occurred:
+ERROR 12-22 12:08:38 [registry.py:673] 
+ERROR 12-22 12:08:38 [registry.py:673] Traceback (most recent call last):
+ERROR 12-22 12:08:38 [registry.py:673]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/model_executor/models/registry.py", line 668, in _save_modelinfo_to_cache
+ERROR 12-22 12:08:38 [registry.py:673]     cache_dir.mkdir(parents=True, exist_ok=True)
+ERROR 12-22 12:08:38 [registry.py:673]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/pathlib.py", line 1120, in mkdir
+ERROR 12-22 12:08:38 [registry.py:673]     self.parent.mkdir(parents=True, exist_ok=True)
+ERROR 12-22 12:08:38 [registry.py:673]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/pathlib.py", line 1120, in mkdir
+ERROR 12-22 12:08:38 [registry.py:673]     self.parent.mkdir(parents=True, exist_ok=True)
+ERROR 12-22 12:08:38 [registry.py:673]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/pathlib.py", line 1120, in mkdir
+ERROR 12-22 12:08:38 [registry.py:673]     self.parent.mkdir(parents=True, exist_ok=True)
+ERROR 12-22 12:08:38 [registry.py:673]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/pathlib.py", line 1116, in mkdir
+ERROR 12-22 12:08:38 [registry.py:673]     os.mkdir(self, mode)
+ERROR 12-22 12:08:38 [registry.py:673] PermissionError: [Errno 13] Permission denied: '/a/home/cc/students/cs/evyataroren'
+INFO 12-22 12:08:38 [model.py:514] Resolved architecture: Qwen2ForCausalLM
+WARNING 12-22 12:08:38 [model.py:2005] Casting torch.bfloat16 to torch.float16.
+INFO 12-22 12:08:38 [model.py:1661] Using max model len 4096
+INFO 12-22 12:08:39 [scheduler.py:230] Chunked prefill is enabled with max_num_batched_tokens=8192.
+[0;36m(EngineCore_DP0 pid=144426)[0;0m INFO 12-22 12:08:40 [core.py:93] Initializing a V1 LLM engine (v0.13.0) with config: model='/home/ADV_2526a/evyataroren/inter_2025/models/DS-qwen-7B/DeepSeek-R1-Distill-Qwen-7B', speculative_config=None, tokenizer='/home/ADV_2526a/evyataroren/inter_2025/models/DS-qwen-7B/DeepSeek-R1-Distill-Qwen-7B', skip_tokenizer_init=False, tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=True, dtype=torch.float16, max_seq_len=4096, download_dir=None, load_format=auto, tensor_parallel_size=1, pipeline_parallel_size=1, data_parallel_size=1, disable_custom_all_reduce=False, quantization=None, enforce_eager=False, kv_cache_dtype=auto, device_config=cuda, structured_outputs_config=StructuredOutputsConfig(backend='auto', disable_fallback=False, disable_any_whitespace=False, disable_additional_properties=False, reasoning_parser='', reasoning_parser_plugin='', enable_in_reasoning=False), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None, kv_cache_metrics=False, kv_cache_metrics_sample=0.01, cudagraph_metrics=False, enable_layerwise_nvtx_tracing=False), seed=0, served_model_name=/home/ADV_2526a/evyataroren/inter_2025/models/DS-qwen-7B/DeepSeek-R1-Distill-Qwen-7B, enable_prefix_caching=True, enable_chunked_prefill=True, pooler_config=None, compilation_config={'level': None, 'mode': <CompilationMode.VLLM_COMPILE: 3>, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'inductor', 'custom_ops': ['none'], 'splitting_ops': ['vllm::unified_attention', 'vllm::unified_attention_with_output', 'vllm::unified_mla_attention', 'vllm::unified_mla_attention_with_output', 'vllm::mamba_mixer2', 'vllm::mamba_mixer', 'vllm::short_conv', 'vllm::linear_attention', 'vllm::plamo2_mamba_mixer', 'vllm::gdn_attention_core', 'vllm::kda_attention', 'vllm::sparse_attn_indexer'], 'compile_mm_encoder': False, 'compile_sizes': [], 'compile_ranges_split_points': [8192], 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.FULL_AND_PIECEWISE: (2, 1)>, 'cudagraph_num_of_warmups': 1, 'cudagraph_capture_sizes': [1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128, 136, 144, 152, 160, 168, 176, 184, 192, 200, 208, 216, 224, 232, 240, 248, 256, 272, 288, 304, 320, 336, 352, 368, 384, 400, 416, 432, 448, 464, 480, 496, 512], 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': False, 'pass_config': {'fuse_norm_quant': False, 'fuse_act_quant': False, 'fuse_attn_quant': False, 'eliminate_noops': True, 'enable_sp': False, 'fuse_gemm_comms': False, 'fuse_allreduce_rms': False}, 'max_cudagraph_capture_size': 512, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False}, 'local_cache_dir': None}
+[0;36m(EngineCore_DP0 pid=144426)[0;0m INFO 12-22 12:08:40 [parallel_state.py:1203] world_size=1 rank=0 local_rank=0 distributed_init_method=tcp://132.67.247.213:49487 backend=nccl
+[0;36m(EngineCore_DP0 pid=144426)[0;0m INFO 12-22 12:08:41 [parallel_state.py:1411] rank 0 in world size 1 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank 0
+[0;36m(EngineCore_DP0 pid=144426)[0;0m INFO 12-22 12:08:44 [gpu_model_runner.py:3562] Starting to load model /home/ADV_2526a/evyataroren/inter_2025/models/DS-qwen-7B/DeepSeek-R1-Distill-Qwen-7B...
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866] EngineCore failed to start.
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866] Traceback (most recent call last):
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 857, in run_engine_core
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     engine_core = EngineCoreProc(*args, **kwargs)
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 637, in __init__
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     super().__init__(
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 102, in __init__
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     self.model_executor = executor_class(vllm_config)
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/executor/abstract.py", line 101, in __init__
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     self._init_executor()
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/executor/uniproc_executor.py", line 48, in _init_executor
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     self.driver_worker.load_model()
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/worker/gpu_worker.py", line 289, in load_model
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     self.model_runner.load_model(eep_scale_up=eep_scale_up)
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/worker/gpu_model_runner.py", line 3581, in load_model
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     self.model = model_loader.load_model(
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]                  ^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/model_executor/model_loader/base_loader.py", line 49, in load_model
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     model = initialize_model(
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]             ^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/model_executor/model_loader/utils.py", line 48, in initialize_model
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     return model_class(vllm_config=vllm_config, prefix=prefix)
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/model_executor/models/qwen2.py", line 543, in __init__
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     self.model = Qwen2Model(
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]                  ^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/compilation/decorators.py", line 291, in __init__
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     old_init(self, **kwargs)
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/model_executor/models/qwen2.py", line 394, in __init__
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     self.start_layer, self.end_layer, self.layers = make_layers(
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]                                                     ^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/model_executor/models/utils.py", line 605, in make_layers
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     + [
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]       ^
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/model_executor/models/utils.py", line 606, in <listcomp>
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     maybe_offload_to_cpu(layer_fn(prefix=f"{prefix}.{idx}"))
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/model_executor/models/qwen2.py", line 396, in <lambda>
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     lambda prefix: decoder_layer_type(
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]                    ^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/model_executor/models/qwen2.py", line 258, in __init__
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     self.self_attn = Qwen2Attention(
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]                      ^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/model_executor/models/qwen2.py", line 184, in __init__
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     self.attn = attn_cls(
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]                 ^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/attention/layer.py", line 198, in __init__
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     self.attn_backend = get_attn_backend(
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]                         ^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/attention/selector.py", line 83, in get_attn_backend
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     return _cached_get_attn_backend(
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]            ^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/attention/selector.py", line 96, in _cached_get_attn_backend
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     attention_cls = current_platform.get_attn_backend_cls(
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/platforms/cuda.py", line 320, in get_attn_backend_cls
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     valid_backends_priorities, invalid_reasons = cls.get_valid_backends(
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]                                                  ^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/platforms/cuda.py", line 275, in get_valid_backends
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     backend_class = backend.get_class()
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]                     ^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/attention/backends/registry.py", line 111, in get_class
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     return resolve_obj_by_qualname(self.get_path())
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/utils/import_utils.py", line 122, in resolve_obj_by_qualname
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     module = importlib.import_module(module_name)
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/importlib/__init__.py", line 126, in import_module
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     return _bootstrap._gcd_import(name[level:], package, level)
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "<frozen importlib._bootstrap>", line 1204, in _gcd_import
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "<frozen importlib._bootstrap>", line 1147, in _find_and_load_unlocked
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "<frozen importlib._bootstrap>", line 690, in _load_unlocked
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "<frozen importlib._bootstrap_external>", line 940, in exec_module
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/attention/backends/flashinfer.py", line 10, in <module>
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     from flashinfer import (
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/flashinfer/__init__.py", line 23, in <module>
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     from . import jit as jit
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/flashinfer/jit/__init__.py", line 22, in <module>
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     from . import cubin_loader
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/flashinfer/jit/cubin_loader.py", line 27, in <module>
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     from .core import logger
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/flashinfer/jit/core.py", line 18, in <module>
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]     os.makedirs(jit_env.FLASHINFER_WORKSPACE_DIR, exist_ok=True)
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "<frozen os>", line 215, in makedirs
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "<frozen os>", line 215, in makedirs
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "<frozen os>", line 215, in makedirs
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   [Previous line repeated 1 more time]
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866]   File "<frozen os>", line 225, in makedirs
+[0;36m(EngineCore_DP0 pid=144426)[0;0m ERROR 12-22 12:08:47 [core.py:866] PermissionError: [Errno 13] Permission denied: '/a/home/cc/students/cs/evyataroren'

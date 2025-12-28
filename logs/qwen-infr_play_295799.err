@@ -1,0 +1,135 @@
+/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/transformers/utils/hub.py:110: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+The argument `trust_remote_code` is to be used with Auto classes. It has no effect here and is ignored.
+[0;36m(EngineCore_DP0 pid=147113)[0;0m /home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/tvm_ffi/_optional_torch_c_dlpack.py:174: UserWarning: Failed to JIT torch c dlpack extension, EnvTensorAllocator will not be enabled.
+[0;36m(EngineCore_DP0 pid=147113)[0;0m We recommend installing via `pip install torch-c-dlpack-ext`
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   warnings.warn(
+[0;36m(EngineCore_DP0 pid=147113)[0;0m Process EngineCore_DP0:
+[0;36m(EngineCore_DP0 pid=147113)[0;0m Traceback (most recent call last):
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/multiprocessing/process.py", line 314, in _bootstrap
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     self.run()
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/multiprocessing/process.py", line 108, in run
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     self._target(*self._args, **self._kwargs)
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 870, in run_engine_core
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     raise e
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 857, in run_engine_core
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     engine_core = EngineCoreProc(*args, **kwargs)
+[0;36m(EngineCore_DP0 pid=147113)[0;0m                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 637, in __init__
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     super().__init__(
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/core.py", line 102, in __init__
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     self.model_executor = executor_class(vllm_config)
+[0;36m(EngineCore_DP0 pid=147113)[0;0m                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/executor/abstract.py", line 101, in __init__
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     self._init_executor()
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/executor/uniproc_executor.py", line 48, in _init_executor
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     self.driver_worker.load_model()
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/worker/gpu_worker.py", line 289, in load_model
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     self.model_runner.load_model(eep_scale_up=eep_scale_up)
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/worker/gpu_model_runner.py", line 3581, in load_model
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     self.model = model_loader.load_model(
+[0;36m(EngineCore_DP0 pid=147113)[0;0m                  ^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/model_executor/model_loader/base_loader.py", line 49, in load_model
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     model = initialize_model(
+[0;36m(EngineCore_DP0 pid=147113)[0;0m             ^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/model_executor/model_loader/utils.py", line 48, in initialize_model
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     return model_class(vllm_config=vllm_config, prefix=prefix)
+[0;36m(EngineCore_DP0 pid=147113)[0;0m            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/model_executor/models/qwen2.py", line 543, in __init__
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     self.model = Qwen2Model(
+[0;36m(EngineCore_DP0 pid=147113)[0;0m                  ^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/compilation/decorators.py", line 291, in __init__
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     old_init(self, **kwargs)
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/model_executor/models/qwen2.py", line 394, in __init__
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     self.start_layer, self.end_layer, self.layers = make_layers(
+[0;36m(EngineCore_DP0 pid=147113)[0;0m                                                     ^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/model_executor/models/utils.py", line 605, in make_layers
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     + [
+[0;36m(EngineCore_DP0 pid=147113)[0;0m       ^
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/model_executor/models/utils.py", line 606, in <listcomp>
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     maybe_offload_to_cpu(layer_fn(prefix=f"{prefix}.{idx}"))
+[0;36m(EngineCore_DP0 pid=147113)[0;0m                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/model_executor/models/qwen2.py", line 396, in <lambda>
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     lambda prefix: decoder_layer_type(
+[0;36m(EngineCore_DP0 pid=147113)[0;0m                    ^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/model_executor/models/qwen2.py", line 258, in __init__
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     self.self_attn = Qwen2Attention(
+[0;36m(EngineCore_DP0 pid=147113)[0;0m                      ^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/model_executor/models/qwen2.py", line 184, in __init__
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     self.attn = attn_cls(
+[0;36m(EngineCore_DP0 pid=147113)[0;0m                 ^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/attention/layer.py", line 198, in __init__
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     self.attn_backend = get_attn_backend(
+[0;36m(EngineCore_DP0 pid=147113)[0;0m                         ^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/attention/selector.py", line 83, in get_attn_backend
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     return _cached_get_attn_backend(
+[0;36m(EngineCore_DP0 pid=147113)[0;0m            ^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/attention/selector.py", line 96, in _cached_get_attn_backend
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     attention_cls = current_platform.get_attn_backend_cls(
+[0;36m(EngineCore_DP0 pid=147113)[0;0m                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/platforms/cuda.py", line 320, in get_attn_backend_cls
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     valid_backends_priorities, invalid_reasons = cls.get_valid_backends(
+[0;36m(EngineCore_DP0 pid=147113)[0;0m                                                  ^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/platforms/cuda.py", line 275, in get_valid_backends
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     backend_class = backend.get_class()
+[0;36m(EngineCore_DP0 pid=147113)[0;0m                     ^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/attention/backends/registry.py", line 111, in get_class
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     return resolve_obj_by_qualname(self.get_path())
+[0;36m(EngineCore_DP0 pid=147113)[0;0m            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/utils/import_utils.py", line 122, in resolve_obj_by_qualname
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     module = importlib.import_module(module_name)
+[0;36m(EngineCore_DP0 pid=147113)[0;0m              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/importlib/__init__.py", line 126, in import_module
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     return _bootstrap._gcd_import(name[level:], package, level)
+[0;36m(EngineCore_DP0 pid=147113)[0;0m            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "<frozen importlib._bootstrap>", line 1204, in _gcd_import
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "<frozen importlib._bootstrap>", line 1147, in _find_and_load_unlocked
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "<frozen importlib._bootstrap>", line 690, in _load_unlocked
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "<frozen importlib._bootstrap_external>", line 940, in exec_module
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/attention/backends/flashinfer.py", line 10, in <module>
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     from flashinfer import (
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/flashinfer/__init__.py", line 23, in <module>
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     from . import jit as jit
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/flashinfer/jit/__init__.py", line 22, in <module>
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     from . import cubin_loader
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/flashinfer/jit/cubin_loader.py", line 27, in <module>
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     from .core import logger
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/flashinfer/jit/core.py", line 18, in <module>
+[0;36m(EngineCore_DP0 pid=147113)[0;0m     os.makedirs(jit_env.FLASHINFER_WORKSPACE_DIR, exist_ok=True)
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "<frozen os>", line 215, in makedirs
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "<frozen os>", line 215, in makedirs
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "<frozen os>", line 215, in makedirs
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   [Previous line repeated 1 more time]
+[0;36m(EngineCore_DP0 pid=147113)[0;0m   File "<frozen os>", line 225, in makedirs
+[0;36m(EngineCore_DP0 pid=147113)[0;0m PermissionError: [Errno 13] Permission denied: '/a/home/cc/students/cs/evyataroren'
+Traceback (most recent call last):
+  File "/home/ADV_2526a/evyataroren/inter_2025/play/check_abillity_to_recover.py", line 472, in <module>
+    run_prompt_injection_experiment()
+  File "/home/ADV_2526a/evyataroren/inter_2025/play/check_abillity_to_recover.py", line 284, in run_prompt_injection_experiment
+    llm = LLM(
+          ^^^^
+  File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/entrypoints/llm.py", line 351, in __init__
+    self.llm_engine = LLMEngine.from_engine_args(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/llm_engine.py", line 183, in from_engine_args
+    return cls(
+           ^^^^
+  File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/llm_engine.py", line 109, in __init__
+    self.engine_core = EngineCoreClient.make_client(
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/core_client.py", line 93, in make_client
+    return SyncMPClient(vllm_config, executor_class, log_stats)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/core_client.py", line 648, in __init__
+    super().__init__(
+  File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/core_client.py", line 477, in __init__
+    with launch_core_engines(vllm_config, executor_class, log_stats) as (
+  File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/contextlib.py", line 144, in __exit__
+    next(self.gen)
+  File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/utils.py", line 903, in launch_core_engines
+    wait_for_engine_startup(
+  File "/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/envs/inter25_vllm/lib/python3.11/site-packages/vllm/v1/engine/utils.py", line 960, in wait_for_engine_startup
+    raise RuntimeError(
+RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
