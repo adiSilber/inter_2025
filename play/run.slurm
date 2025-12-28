@@ -12,9 +12,28 @@
 #SBATCH --account=gpu-research
 #SBATCH --partition=killable
 
+
+
+export PROJECT_HOME=$(pwd)
+export CACHE_BASE="$PROJECT_HOME/.cache"
+mkdir -p "$CACHE_BASE"
+
+# HuggingFace cache directories
+export HF_HOME="$CACHE_BASE/huggingface"
+export TRANSFORMERS_CACHE="$CACHE_BASE/huggingface/transformers"
+export HF_DATASETS_CACHE="$CACHE_BASE/huggingface/datasets"
+
+# vLLM settings - disable usage stats
+export VLLM_USAGE_SOURCE="production"
+export VLLM_DO_NOT_TRACK="1"
+
+# FlashInfer workspace directory
+export FLASHINFER_WORKSPACE_DIR="$CACHE_BASE/flashinfer"
+
 . utils/base.sh
 source .miniconda3/etc/profile.d/conda.sh
-conda activate inter2025_vllm
+conda activate inter25_vllm
+
 
 python play/check_abillity_to_recover.py
 
