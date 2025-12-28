@@ -12,6 +12,7 @@ Experiment design:
 - Second pass to verify if model can recover and answer correctly
 """
 
+import os
 import json
 import random
 from pathlib import Path
@@ -19,10 +20,16 @@ from typing import List, Dict, Any, Optional
 from itertools import product
 from datetime import datetime
 import re
-
-# vLLM for efficient inference
+import uuid
+from vllm import LLM, RequestOutput, SamplingParams
+import torch
+import uuid
 from vllm import LLM, SamplingParams
-
+from vllm.engine.llm_engine import LLMEngine
+from vllm.outputs import RequestOutput
+import torch
+from typing import List, Callable, Optional
+from vllm import LLM, SamplingParams
 
 # ============================================================================
 # Configuration
@@ -127,47 +134,192 @@ def load_math500_questions(n: int = N_QUESTIONS) -> List[Dict[str, Any]]:
     return random.sample(math500, n)
 
 
-def should_inject(current_generation: str, question: str) -> bool:
+def should_inject(current_generation: str, question: str, num_tokens: int) -> bool:
     """
     Decide whether to inject at this point in the generation.
-    Inject after the model has started reasoning but before conclusion.
+    Inject at the first end of a sentence after 70 tokens.
     """
-    # Inject if we have some reasoning (at least 50 tokens worth) but not yet at conclusion
-    if len(current_generation) < 200:  # Not enough reasoning yet
+    # Need at least 70 tokens generated
+    if num_tokens < 70:
         return False
     
-    # Don't inject if we're near the end (conclusion indicators)
-    conclusion_indicators = [
-        "therefore", "thus", "final answer", "answer is", 
-        "conclusion", "in summary", "\\boxed"
-    ]
-    
-    lower_gen = current_generation.lower()
-    recent_text = lower_gen[-200:]  # Check last 200 chars
-    
-    if any(indicator in recent_text for indicator in conclusion_indicators):
-        return False
-    
-    # Inject at a natural break point (after sentence or paragraph)
-    if current_generation.endswith(('.', '!', '?', '\n\n')):
+    # Inject at first sentence ending (after period, exclamation, or question mark)
+    if current_generation.endswith(('.', '!', '?')):
         return True
     
     return False
 
 
-def inject_text_callback(generated_so_far: str, injection_text: str, injected: List[bool]) -> str:
+
+# Type alias for the injection criteria function
+InjectionCriteria = Callable[[str, str, int], bool]
+
+class InjectionLogitsProcessor:
     """
-    Callback function to inject text during generation.
-    Only injects once when should_inject returns True.
+    A stateful logits processor that monitors generation. 
+    If the injection criteria is met, it forces an EOS token to stop generation.
     """
-    if injected[0]:  # Already injected
-        return ""
+    def __init__(
+        self, 
+        tokenizer, 
+        should_inject: InjectionCriteria, 
+        prompt: str, 
+        eos_token_id: int
+    ):
+        self.tokenizer = tokenizer
+        self.should_inject = should_inject
+        self.prompt = prompt
+        self.eos_token_id = eos_token_id
+        
+        # State tracking
+        self.injection_triggered = False
+        self.stopped_at_token_len = 0
+
+    def __call__(
+        self, 
+        prompt_token_ids: List[int], 
+        generated_token_ids: List[int], 
+        logits: torch.Tensor
+    ) -> torch.Tensor:
+        # 1. Optimization: Early exit if already triggered
+        if self.injection_triggered:
+            return self._force_eos(logits)
+
+        # 2. Decode current generation to string
+        # NOTE: Decoding at every step adds CPU overhead. 
+        current_generation = self.tokenizer.decode(generated_token_ids)
+        num_tokens = len(generated_token_ids)
+
+        # 3. Check User Criteria
+        if self.should_inject(current_generation, self.prompt, num_tokens):
+            self.injection_triggered = True
+            self.stopped_at_token_len = num_tokens
+            return self._force_eos(logits)
+
+        return logits
+
+    def _force_eos(self, logits: torch.Tensor) -> torch.Tensor:
+        """Sets all logits to -inf except the EOS token."""
+        logits[:] = -float("inf")
+        logits[self.eos_token_id] = 0.0
+        return logits
+
+# Criteria function signature
+InjectionCriteria = Callable[[str, str, int], bool]
+
+def generate_with_injection(
+    llm: LLM, 
+    prompt: str, 
+    injection_text: str, 
+    sampling_params: SamplingParams,
+    should_inject: InjectionCriteria
+) -> str:
+    """
+    Manually drives the vLLM engine to allow conditional stopping and injection.
+    """
     
-    if should_inject(generated_so_far, ""):
-        injected[0] = True
-        return injection_text
+    # 1. Define a helper to run a single generation pass with monitoring
+    def run_monitored_pass(current_prompt: str, is_first_pass: bool) -> str:
+        request_id = f"req_{time.time()}"
+        
+        # Add request to the engine
+        # We access the internal engine directly to control stepping
+        llm.llm_engine.add_request(
+            request_id, 
+            current_prompt, 
+            sampling_params
+        )
+
+        generated_text = ""
+        
+        # Drive the engine step-by-step
+        while llm.llm_engine.has_unfinished_requests():
+            # Performs one step of inference (one token for all active requests)
+            step_outputs = llm.llm_engine.step()
+
+            for output in step_outputs:
+                if output.request_id != request_id:
+                    continue
+
+                # Get the newly generated text relative to this specific pass
+                # VLLM outputs contain the full text, so we just read it.
+                generated_text = output.outputs[0].text
+                
+                # If the request is finished normally (EOS token), return result
+                if output.finished:
+                    return generated_text
+
+                # --- INTERVENTION POINT ---
+                # Only check injection criteria during the first pass
+                if is_first_pass:
+                    # Current generation includes the prompt in some VLLM versions, 
+                    # but usually output.outputs[0].text is just the completion.
+                    # We pass the completion to your check function.
+                    token_count = len(output.outputs[0].token_ids)
+                    
+                    if should_inject(generated_text, prompt, token_count):
+                        # Criteria met! Stop this request immediately.
+                        llm.llm_engine.abort_request(request_id)
+                        
+                        # Return the partial text + Injection Indicator (special flag)
+                        return generated_text + "###INJECTION_TRIGGERED###"
+        
+        return generated_text
+
+    # 2. Execute Pass 1 (Monitor for Criteria)
+    pass_1_output = run_monitored_pass(prompt, is_first_pass=True)
+
+    # 3. Check if Injection was triggered
+    if "###INJECTION_TRIGGERED###" in pass_1_output:
+        # Clean the flag
+        partial_text = pass_1_output.replace("###INJECTION_TRIGGERED###", "")
+        
+        # Construct new prompt: Original + Partial + Injection
+        combined_prompt = prompt + partial_text + injection_text
+        
+        # 4. Execute Pass 2 (Resume Generation)
+        # We run this as a normal pass (is_first_pass=False) so we don't inject again.
+        # Note: You can make this recursive by setting is_first_pass=True if needed.
+        pass_2_output = run_monitored_pass(combined_prompt, is_first_pass=False)
+        
+        return partial_text + injection_text + pass_2_output
     
-    return ""
+    else:
+        # Injection never happened; return original result
+        return pass_1_output
+
+
+
+def extract_final_answer(text: str) -> str:
+    """Extract text after </think> tag (the final answer portion).
+    
+    Args:
+        text: The generated text that may contain <think>...</think> reasoning
+        
+    Returns:
+        The text after the closing </think> tag, or the full text if no tag found.
+    """
+    # Look for the closing think tag (case-insensitive)
+    think_close_patterns = [
+        r'</think>',
+    ]
+    
+    # Find where thinking ends
+    think_end_pos = -1
+    lower_text = text.lower()
+    
+    for pattern in think_close_patterns:
+        match = re.search(pattern, lower_text, re.IGNORECASE)
+        if match:
+            think_end_pos = match.end()
+            break
+    
+    # Extract text after thinking
+    if think_end_pos > 0:
+        return text[think_end_pos:].strip()
+    
+    # No think tag found - return full text
+    return text.strip()
 
 
 def extract_judge_decision(text: str) -> str:
@@ -179,9 +331,6 @@ def extract_judge_decision(text: str) -> str:
     # Look for the closing think tag (case-insensitive)
     think_close_patterns = [
         r'</think>',
-        r'</thinking>',
-        r'<\/think>',
-        r'<\/thinking>'
     ]
     
     # Find where thinking ends
@@ -270,6 +419,8 @@ def run_prompt_injection_experiment():
         trust_remote_code=True,
         gpu_memory_utilization=0.9,
         skip_tokenizer_init=False,
+        max_model_len=4096,
+        enable_prefix_caching=True
     )
     
     # Load questions
@@ -287,24 +438,27 @@ def run_prompt_injection_experiment():
     print(f"Total combinations: {len(combinations)}")
     
     # Prepare all prompts for batched inference
-    print(f"\n[5/6] Running inference on {len(combinations)} combinations...")
-    batch_prompts = []
-    combination_metadata = []
+    print(f"\n[5/6] Running token-by-token generation with injection on {len(combinations)} combinations...")
+    results = []
     
-    for q_idx, p_idx, i_idx in combinations:
+    for idx, (q_idx, p_idx, i_idx) in enumerate(combinations):
         question_data = questions[q_idx]
         question_text = question_data["question"]
         
         # Format the prompt using loaded template
         formatted_prompt = question_prompts[p_idx]["content"].format(question=question_text)
+        injection_text = injection_texts[i_idx]["content"]
         
-        # For this implementation, we'll inject the text at a fixed position
-        # In a more sophisticated version, you'd use streaming and inject dynamically
-        # Here we inject after a reasonable portion of the expected output
-        prompt_with_placeholder = formatted_prompt
+        # Generate with injection token-by-token
+        full_generation, injection_point, pre_injection_text = generate_with_injection(
+            llm, 
+            formatted_prompt, 
+            injection_text, 
+            SAMPLING_PARAMS,
+            should_inject=should_inject
+        )
         
-        batch_prompts.append(prompt_with_placeholder)
-        combination_metadata.append({
+        result = {
             "question_idx": q_idx,
             "prompt_idx": p_idx,
             "injection_idx": i_idx,
@@ -312,81 +466,36 @@ def run_prompt_injection_experiment():
             "correct_answer": question_data["answer"],
             "prompt_name": question_prompts[p_idx]["name"],
             "injection_name": injection_texts[i_idx]["name"],
-            "injection_text": injection_texts[i_idx]["content"]
-        })
-    
-    # Generate initial responses (before injection)
-    print("  Generating initial responses...")
-    # Use add_special_tokens=False to only add BOS, no chat template tokens
-    initial_outputs = llm.generate(
-        batch_prompts, 
-        SAMPLING_PARAMS,
-        use_tqdm=False
-    )
-    
-    # Now create injected versions
-    print("  Creating injected versions...")
-    injected_prompts = []
-    for i, output in enumerate(initial_outputs):
-        generated_text = output.outputs[0].text
-        
-        # Find a good injection point (middle of generation)
-        injection_point = len(generated_text) // 2
-        # Find the nearest sentence end after midpoint
-        for j in range(injection_point, len(generated_text)):
-            if generated_text[j] in '.!?\n':
-                injection_point = j + 1
-                break
-        
-        # Create injected prompt
-        original_prompt = batch_prompts[i]
-        partial_generation = generated_text[:injection_point]
-        injection_text = combination_metadata[i]["injection_text"]
-        
-        injected_prompt = original_prompt + partial_generation + injection_text
-        injected_prompts.append(injected_prompt)
-        
-        # Store initial generation
-        combination_metadata[i]["initial_generation"] = generated_text
-        combination_metadata[i]["injection_point"] = injection_point
-    
-    # Generate continuations after injection
-    print("  Generating post-injection continuations...")
-    # Use add_special_tokens=False to only add BOS, no chat template tokens
-    injected_outputs = llm.generate(
-        injected_prompts,
-        SAMPLING_PARAMS,
-        use_tqdm=False
-    )
-    
-    # Process results
-    print(f"\n[6/6] Processing results and running recovery verification...")
-    results = []
-    
-    for i, (metadata, output) in enumerate(zip(combination_metadata, injected_outputs)):
-        full_generation = output.outputs[0].text
-        
-        result = {
-            **metadata,
-            "injected_generation": full_generation,
+            "injection_text": injection_text,
+            "full_generation": full_generation,
+            "injection_point": injection_point,
+            "pre_injection_text": pre_injection_text,
             "timestamp": datetime.now().isoformat()
         }
         
         results.append(result)
         
-        if (i + 1) % 10 == 0:
-            print(f"  Processed {i + 1}/{len(combinations)} combinations...")
+        if (idx + 1) % 5 == 0:
+            print(f"  Processed {idx + 1}/{len(combinations)} combinations...")
     
-    # Run recovery verification in batch (judge model)
-    print("  Running judge model verification...")
-    recovery_prompts = [
-        recovery_verification_prompt.format(
-            question=r["question"],
-            correct_answer=r["correct_answer"],
-            generated_text=r["injected_generation"]
+    # Process results
+    print(f"\n[6/6] Running recovery verification with judge model...")
+    
+    # Extract final answers (text after </think>) for judge evaluation
+    recovery_prompts = []
+    for r in results:
+        # Extract only the final answer portion (after </think>)
+        final_answer = extract_final_answer(r["full_generation"])
+        r["final_answer_for_judge"] = final_answer
+        
+        # Create judge prompt with only the final answer
+        recovery_prompts.append(
+            recovery_verification_prompt.format(
+                question=r["question"],
+                correct_answer=r["correct_answer"],
+                generated_text=final_answer  # Only the final answer, not the thinking
+            )
         )
-        for r in results
-    ]
     
     # Use add_special_tokens=False to only add BOS, no chat template tokens
     recovery_outputs = llm.generate(
@@ -397,8 +506,12 @@ def run_prompt_injection_experiment():
     
     for result, output in zip(results, recovery_outputs):
         judge_response = output.outputs[0].text.strip()
-        judge_decision = extract_judge_decision(judge_response)
-        result["judge_response"] = judge_response
+        # Extract judge's final answer (after their thinking)
+        judge_final_answer = extract_final_answer(judge_response)
+        judge_decision = extract_judge_decision(judge_final_answer)
+        
+        result["judge_full_response"] = judge_response
+        result["judge_final_answer"] = judge_final_answer
         result["judge_decision"] = judge_decision
     
     # Save results
@@ -412,7 +525,8 @@ def run_prompt_injection_experiment():
             "model_path": str(MODEL_PATH),
             "timestamp": datetime.now().isoformat(),
             "question_prompt_names": [p["name"] for p in question_prompts],
-            "injection_names": [inj["name"] for inj in injection_texts]
+            "injection_names": [inj["name"] for inj in injection_texts],
+            "injection_methodology": "end of sentence min 70 tokens"
         },
         "results": results
     }
