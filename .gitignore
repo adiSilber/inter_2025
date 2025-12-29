@@ -2,4 +2,5 @@
 models/
 datasets/datasets
 .vscode
-.DS_STORE
+.
+**/__pycache__/**

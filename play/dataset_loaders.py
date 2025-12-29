@@ -1,14 +1,17 @@
-
-
-
-
+from dataclasses import dataclass
 import os
 import random
 import json
 import pandas as pd
 from typing import List, Dict, Any, Optional
 
-class dataset_loaders:
+@dataclass
+class question_item:
+    q : str
+    a : str
+    misc_specific_misc : Dict[str, Any]
+
+class dataset_loader:
     def __init__(self,  base_path:str, seed = -1) -> None:
         """
         when seed is -1, no randomization is done. (shuffling the dataset).
@@ -38,10 +41,9 @@ class dataset_loaders:
         self.index = 0
         return self
 
-    def __next__(self, k:int=1) -> dict:
+    def __next__(self, k:int=1) -> List[question_item]:
         """
-        returns next k samples from the dataset as a dict of the form
-        {'q': "", 'a': "", 'misc_specific_misc': {...}}
+        returns next k samples from the dataset as a list of question_item objects
         """
         if self.index >= len(self.data):
             raise StopIteration
@@ -52,15 +54,9 @@ class dataset_loaders:
         if not batch:
             raise StopIteration
 
-        if k == 1 and len(batch) == 1:
-            return batch[0]
-        
-        # Collate
-        keys = batch[0].keys()
-        collated = {key: [d[key] for d in batch] for key in keys}
-        return collated
+        return batch
 
-class AI2ARCLoader(dataset_loaders):
+class AI2ARCLoader(dataset_loader):
     def load_data(self):
         # Try ARC-Challenge first
         path = os.path.join(self.base_path, "ai2_arc", "ARC-Challenge", "test-00000-of-00001.parquet")
@@ -78,63 +74,63 @@ class AI2ARCLoader(dataset_loaders):
                 formatted_choices = "\n".join([f"{l}. {t}" for l, t in zip(labels, texts)])
                 full_q = f"{q}\n{formatted_choices}"
                 
-                self.data.append({
-                    'q': full_q,
-                    'a': row['answerKey'],
-                    'misc_specific_misc': {'id': row['id']}
-                })
+                self.data.append(question_item(
+                    q=full_q,
+                    a=row['answerKey'],
+                    misc_specific_misc={'id': row['id']}
+                ))
 
-class AIMELoader(dataset_loaders):
+class AIMELoader(dataset_loader):
     def load_data(self):
         path = os.path.join(self.base_path, "AIME_1983_2024", "AIME_Dataset_1983_2024.csv")
         if os.path.exists(path):
             df = pd.read_csv(path)
             for _, row in df.iterrows():
-                self.data.append({
-                    'q': row['Question'],
-                    'a': str(row['Answer']),
-                    'misc_specific_misc': {
+                self.data.append(question_item(
+                    q=row['Question'],
+                    a=str(row['Answer']),
+                    misc_specific_misc={
                         'ID': row['ID'],
                         'Year': row['Year'],
                         'Problem Number': row['Problem Number']
                     }
-                })
+                ))
 
-class MATH500Loader(dataset_loaders):
+class MATH500Loader(dataset_loader):
     def load_data(self):
         path = os.path.join(self.base_path, "MATH-500", "test.jsonl")
         if os.path.exists(path):
             with open(path, 'r') as f:
                 for line in f:
                     item = json.loads(line)
-                    self.data.append({
-                        'q': item['problem'],
-                        'a': item['solution'],
-                        'misc_specific_misc': {
+                    self.data.append(question_item(
+                        q=item['problem'],
+                        a=item['solution'],
+                        misc_specific_misc={
                             'answer': item['answer'],
                             'subject': item['subject'],
                             'level': item['level'],
                             'unique_id': item['unique_id']
                         }
-                    })
+                    ))
 
-class HumanEvalLoader(dataset_loaders):
+class HumanEvalLoader(dataset_loader):
     def load_data(self):
         path = os.path.join(self.base_path, "openai_humaneval", "openai_humaneval", "test-00000-of-00001.parquet")
         if os.path.exists(path):
             df = pd.read_parquet(path)
             for _, row in df.iterrows():
-                self.data.append({
-                    'q': row['prompt'],
-                    'a': row['canonical_solution'],
-                    'misc_specific_misc': {
+                self.data.append(question_item(
+                    q=row['prompt'],
+                    a=row['canonical_solution'],
+                    misc_specific_misc={
                         'task_id': row['task_id'],
                         'test': row['test'],
                         'entry_point': row['entry_point']
                     }
-                })
+                ))
 
-class GPQALoader(dataset_loaders):
+class GPQALoader(dataset_loader):
     def load_data(self):
         try:
             from datasets import load_dataset
@@ -146,15 +142,15 @@ class GPQALoader(dataset_loaders):
             # Load gpqa_diamond
             ds = load_dataset("Idavidrein/gpqa", "gpqa_diamond", split="train", cache_dir=cache_dir)
             for row in ds:
-                self.data.append({
-                    'q': row['Question'],
-                    'a': row['Correct Answer'],
-                    'misc_specific_misc': {
+                self.data.append(question_item(
+                    q=row['Question'],
+                    a=row['Correct Answer'],
+                    misc_specific_misc={
                         'Incorrect Answer 1': row['Incorrect Answer 1'],
                         'Incorrect Answer 2': row['Incorrect Answer 2'],
                         'Incorrect Answer 3': row['Incorrect Answer 3']
                     }
-                })
+                ))
         except Exception as e:
             print(f"Failed to load GPQA: {e}")
 
@@ -164,7 +160,7 @@ class aggregate_shuffle_strategy:
     ROUND_ROBIN = 2
     
 class aggregated_dataset_loader:
-    def __init__(self, datasets: list[dataset_loaders], seed = -1, strategy : aggregate_shuffle_strategy = aggregate_shuffle_strategy.SEQUENTIAL) -> None:
+    def __init__(self, datasets: list[dataset_loader], seed = -1, strategy : aggregate_shuffle_strategy = aggregate_shuffle_strategy.SEQUENTIAL) -> None:
         """
         dataset_loaders: list of dataset_loader objects
         """
@@ -174,7 +170,7 @@ class aggregated_dataset_loader:
 
         datasets_folder_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "datasets")
         for ds in self.loaders:
-            assert isinstance(ds, dataset_loaders)
+            assert isinstance(ds, dataset_loader)
             ds(datasets_folder_path,seed)
         
         if strategy == aggregate_shuffle_strategy.RANDOM:
@@ -186,10 +182,9 @@ class aggregated_dataset_loader:
 
     def __iter__(self):
         return self
-    def __next__(self, k:int=1) -> dict:
+    def __next__(self, k:int=1) -> List[question_item]:
         """
-        returns next k samples from the aggregated dataset loaders as a dict of the form
-        {'q': "", 'a': "", 'misc_specific_misc': {...}}
+        returns next k samples from the aggregated dataset loaders as a list of question_item objects
         """
         if self.strategy == aggregate_shuffle_strategy.SEQUENTIAL:
             if self.current_loader_index >= len(self.loaders):
