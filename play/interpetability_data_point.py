@@ -15,6 +15,6 @@ class InterpretabilityDataPoint:
     judge_model_prompt: list[str]
     judge_response: list[str] # Full text of the judge model's response
     judge_decision: bool
-    aha_moment_first_token: int # The index of the first token of the aha moment in the response
-    aha_moment_last_token: int # The index of the last token of the aha moment in the response
+    aha_moment_first_tokens: list[int]# The index of the first token of the aha moment in the response
+    aha_moment_last_tokens: list[int]# The index of the last token of the aha moment in the response
     seed: int = 42 # The seed used for the random number generator
