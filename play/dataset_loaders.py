@@ -3,16 +3,19 @@ import os
 import random
 import json
 import pandas as pd
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
+
 
 @dataclass
 class question_item:
+    # TODO(yonatan): Consider adding quesiton ID
     q : str
     a : str
     misc_specific_misc : Dict[str, Any]
 
+
 class dataset_loader:
-    def __init__(self,  base_path:str, seed = -1) -> None:
+    def __init__(self,  base_path: str, seed: int = -1) -> None:
         """
         when seed is -1, no randomization is done. (shuffling the dataset).
         base_path: path to the dataset folder. class will look in `base_path/dataset_name/` for dataset files.
@@ -22,7 +25,7 @@ class dataset_loader:
         self.data = []
         self.index = 0
 
-    def __call__(self, base_path: str, seed: int = -1):
+    def __call__(self, base_path: str, seed: int = -1) -> None:
         self.base_path = base_path
         self.seed = seed
         self.data = []
@@ -35,7 +38,7 @@ class dataset_loader:
             random.setstate(prev)
 
     def load_data(self):
-        pass
+        raise NotImplementedError("load_data method must be implemented by subclasses")
 
     def __iter__(self):
         self.index = 0
@@ -55,6 +58,10 @@ class dataset_loader:
             raise StopIteration
 
         return batch
+
+    def __len__(self) -> int:
+        return len(self.data)
+
 
 class AI2ARCLoader(dataset_loader):
     def load_data(self):
@@ -171,7 +178,7 @@ class aggregated_dataset_loader:
         datasets_folder_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "datasets")
         for ds in self.loaders:
             assert isinstance(ds, dataset_loader)
-            ds(datasets_folder_path,seed)
+            ds(datasets_folder_path, seed)
         
         if strategy == aggregate_shuffle_strategy.RANDOM:
             pass
@@ -182,6 +189,7 @@ class aggregated_dataset_loader:
 
     def __iter__(self):
         return self
+
     def __next__(self, k:int=1) -> List[question_item]:
         """
         returns next k samples from the aggregated dataset loaders as a list of question_item objects
@@ -221,3 +229,9 @@ class aggregated_dataset_loader:
             except StopIteration:
                 self.loaders.remove(current_loader)
                 return self.__next__(k)
+
+    def __len__(self) -> int:
+        total = 0
+        for loader in self.loaders:
+            total += len(loader.data)
+        return total

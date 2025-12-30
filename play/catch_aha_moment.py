@@ -1,7 +1,9 @@
 from play.interpetability_data_point import InterpretabilityDataPoint
+from tqdm import tqdm
+from typing import List, Tuple
 
 
-def _get_aha_patterns() -> list[str]:
+def _get_aha_patterns() -> List[str]:
     """Return list of aha moment patterns to search for."""
     return [
         'doesn\'t make sense', 'not correct', 'won\'t work', 'not right',
@@ -10,7 +12,7 @@ def _get_aha_patterns() -> list[str]:
     ]
 
 
-def _find_all_occurrences(text: str, pattern: str) -> list[int]:
+def _find_all_occurrences(text: str, pattern: str) -> List[int]:
     """Find all character positions where pattern occurs in text."""
     occurrences = []
     start = 0
@@ -23,7 +25,7 @@ def _find_all_occurrences(text: str, pattern: str) -> list[int]:
     return occurrences
 
 
-def _char_pos_to_token_indices(char_pos: int, pattern_length: int, token_texts: list[str]) -> tuple[int, int]:
+def _char_pos_to_token_indices(char_pos: int, pattern_length: int, token_texts: List[str]) -> Tuple[int, int]:
     """Map character position to token indices (first and last token of pattern)."""
     char_pos_current = 0
     first_idx = None
@@ -67,3 +69,7 @@ def catch_aha_moment(data_point: InterpretabilityDataPoint) -> None:
     
     data_point.aha_moment_first_tokens = first_tokens
     data_point.aha_moment_last_tokens = last_tokens
+
+def catch_aha_moments(datapoints: List[InterpretabilityDataPoint]) -> None:
+    for dp in tqdm(datapoints, desc="Catching Aha Moments"):
+        catch_aha_moment(dp)
