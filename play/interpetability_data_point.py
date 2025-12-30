@@ -1,3 +1,6 @@
+from dataclasses import dataclass
+
+
 @dataclass
 class InterpretabilityDataPoint:
     dataset_name: str
