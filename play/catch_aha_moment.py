@@ -1,4 +1,4 @@
-from play.interpetability_data_point import InterpretabilityDataPoint
+from play.interface import DataPoint, Experiment
 from tqdm import tqdm
 from typing import List, Tuple
 
@@ -47,7 +47,7 @@ def _char_pos_to_token_indices(char_pos: int, pattern_length: int, token_texts: 
     return first_idx, last_idx
 
 
-def catch_aha_moment(data_point: InterpretabilityDataPoint) -> None:
+def catch_aha_moment(data_point: DataPoint) -> None:
     """Detect all aha moments in the thinking process and set indices in data_point."""
     tokens = data_point.model_response_thinking
     text = ''.join(tokens).lower()
@@ -70,6 +70,7 @@ def catch_aha_moment(data_point: InterpretabilityDataPoint) -> None:
     data_point.aha_moment_first_tokens = first_tokens
     data_point.aha_moment_last_tokens = last_tokens
 
-def catch_aha_moments(datapoints: List[InterpretabilityDataPoint]) -> None:
+def catch_aha_moments(experiment: Experiment) -> None:
+    datapoints = experiment.datapoints
     for dp in tqdm(datapoints, desc="Catching Aha Moments"):
         catch_aha_moment(dp)
