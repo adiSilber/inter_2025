@@ -9,7 +9,7 @@ from typing import Iterable
 from datetime import datetime
 from vllm import LLM, SamplingParams
 
-from play.interpetability_data_point import InterpretabilityDataPoint
+from play.interface import InterpretabilityDataPoint, Experiment
 from play.utils import extract_judge_decision
 
 
@@ -37,12 +37,22 @@ SAMPLING_PARAMS = SamplingParams(
 # Main Experiment
 # ============================================================================
 
-def run_judge_validation(datapoints: Iterable[InterpretabilityDataPoint], 
+def run_judge_validation(experiment: Experiment,
                          judge_prompt: str = JUDGE_PROMPT):
     """
     Run judge validation on the provided datapoints to verify correctness.
     """
-    
+    model_config = experiment.judge_generation_config
+    model_config.judge_model_path = MODEL_PATH
+    model_config.judge_prompt = judge_prompt
+    model_config.judge_name = MODEL_PATH.name
+    model_config.sampling_params.max_new_tokens = SAMPLING_PARAMS.max_tokens
+    model_config.sampling_params.seed = SAMPLING_PARAMS.seed
+    model_config.sampling_params.max_new_tokens = SAMPLING_PARAMS.max_new_tokens
+    model_config.sampling_params.temperature = SAMPLING_PARAMS.temperature
+    model_config.sampling_params.top_p = SAMPLING_PARAMS.top_p
+
+    datapoints: Iterable[InterpretabilityDataPoint] = experiment.datapoints
     # Load model with vLLM for efficient inference
     llm = LLM(
         model=str(MODEL_PATH),
@@ -67,36 +77,27 @@ def run_judge_validation(datapoints: Iterable[InterpretabilityDataPoint],
         use_tqdm=False
     )
 
+    count_yes, count_no, count_unclear = 0, 0, 0
     for idx, (datapoint, output) in enumerate(zip(datapoints, judge_outputs)):
         judge_response = output.outputs[0].text.strip()
         # Extract judge's final answer (after their thinking)
         judge_decision = extract_judge_decision(judge_response)
-        
+        count_yes += 1 if judge_decision == 'yes' else 0
+        count_no += 1 if judge_decision == 'no' else 0
+        count_unclear += 1 if judge_decision == 'unclear' else 0
+
+        judge_decision = True if judge_decision == 'yes' else False
         # Merge metadata from the original item so results are traceable
         datapoint.update({
             "original_index": idx,
             "judge_full_response": judge_response,
             "judge_decision": judge_decision,
-            "timestamp": datetime.now().isoformat()
         })
 
     total = len(datapoints)
     # Analyze recovery success based on judge decisions
-    successful_recoveries = sum(
-        1 for r in datapoints
-        if r.get("judge_decision") == "yes"
-    )
-    failed_recoveries = sum(
-        1 for r in datapoints
-        if r.get("judge_decision") == "no"
-    )
-    unclear_cases = sum(
-        1 for r in datapoints 
-        if r.get("judge_decision") == "unclear"
-    )
     
     print(f"\nJudge Evaluation Results:")
-    print(f"  Correct (yes): {successful_recoveries}/{total} ({100*successful_recoveries/total:.1f}%)")
-    print(f"  Incorrect (no): {failed_recoveries}/{total} ({100*failed_recoveries/total:.1f}%)")
-    print(f"  Unclear: {unclear_cases}/{total} ({100*unclear_cases/total:.1f}%)")
-
+    print(f"  Correct (yes): {count_yes}/{total} ({100*count_yes/total:.1f}%)")
+    print(f"  Incorrect (no): {count_no}/{total} ({100*count_no/total:.1f}%)")
+    print(f"  Unclear: {count_unclear}/{total} ({100*count_unclear/total:.1f}%)")

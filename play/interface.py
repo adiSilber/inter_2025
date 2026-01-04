@@ -37,6 +37,7 @@ class ModelGenerationConfig:
 @dataclass
 class JudgeGenerationConfig:
     judge_name: str
+    judge_model_path: str
     judge_prompt: list[str]
     sampling_params: SamplingParams
 @dataclass
