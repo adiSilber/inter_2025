@@ -2,7 +2,7 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from dataclasses import dataclass
 from typing import List, Callable, Optional
-
+from play.interface import DataPoint as DataPoint, Experiment
 @dataclass
 class BatchState:
     is_finished: bool = False
@@ -12,26 +12,19 @@ class BatchState:
     injection_ids: List[int] = None
     after_injection_ids: List[int] = None
 
-@dataclass 
-class InjectedResult:
-    prompt: str
-    upto_injection: str
-    injection:str
-    after_injection: str
-
 
 class InjectionGeneration:
-    def __init__(self, model_name: str, model_path: str, device: str = 'cuda'):
+    def __init__(self, experiment: Experiment, device: str = 'cuda'):
         self.device = device
-        self.model_name = model_name
+        self.experiment = experiment
         
-        self.tokenizer = AutoTokenizer.from_pretrained(model_path, padding_side='left')
+        self.tokenizer = AutoTokenizer.from_pretrained(experiment.model_generation_config.model_path, padding_side='left')
         
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
             
         self.model = AutoModelForCausalLM.from_pretrained(
-            model_path, 
+            experiment.model_generation_config.model_path, 
             torch_dtype=torch.float16 if "cuda" in device else torch.float32 
         ).to(self.device)
         self.model.eval()
@@ -42,9 +35,9 @@ class InjectionGeneration:
         temperature: float = 1.0,
         top_k: Optional[int] = None,
         top_p: Optional[float] = None,
-        do_sample: bool = True
+        take_dumb_max: bool = True
     ) -> torch.Tensor:
-        if not do_sample or temperature == 0:
+        if take_dumb_max or temperature == 0:
             return torch.argmax(logits, dim=-1)
         
         logits = logits / temperature
@@ -73,25 +66,15 @@ class InjectionGeneration:
     def generate(
         self,
         batch_size: int, 
-        should_stop_fn: Callable[[List[int]], bool], 
-        prompts: List[str],
-        get_injection_fn: Callable[[], str],         
-        global_stop_fn: Callable[[List[int]], bool], 
-        max_new_tokens: int = 100,
-        temperature: float = 1.0,
-        top_k: Optional[int] = None,
-        top_p: Optional[float] = None,
-        do_sample: bool = True
-    ) -> List[InjectedResult]:
+    ) -> Experiment:
         
-        all_results = []
-        total_prompts = len(prompts)
-
+        total_prompts = len(self.experiment.datapoints)
         for i in range(0, total_prompts, batch_size):
 
-            batch_prompts = prompts[i : i + batch_size]
-            current_batch_size = len(batch_prompts)
+            batch_datapoints = self.experiment.datapoints[i : i + batch_size]
+            current_batch_size = len(batch_datapoints)
             
+            batch_prompts = [datapoint.question_contents for datapoint in batch_datapoints]
             inputs = self.tokenizer(batch_prompts, return_tensors="pt", padding=True).to(self.device)
             input_ids = inputs.input_ids
             attention_mask = inputs.attention_mask
@@ -121,7 +104,7 @@ class InjectionGeneration:
             
             current_step = 0
             
-            while current_step < max_new_tokens:
+            while current_step < self.experiment.model_generation_config.sampling_params.max_new_tokens:
                 
                 
                 final_next_input_ids = []
@@ -144,16 +127,16 @@ class InjectionGeneration:
                     else:
                         pred_token = self._sample_token(
                             next_token_logits[idx:idx+1],
-                            temperature=temperature,
-                            top_k=top_k,
-                            top_p=top_p,
-                            do_sample=do_sample
+                            temperature=self.experiment.model_generation_config.sampling_params.temperature,
+                            top_k=self.experiment.model_generation_config.sampling_params.top_k,
+                            top_p=self.experiment.model_generation_config.sampling_params.top_p,
+                            take_dumb_max=self.experiment.model_generation_config.sampling_params.take_dumb_max
                         )
                         pred_token = pred_token.item()
                         history_plus_candidate = all_generated_ids[idx] + [pred_token]
                         
-                        if not state.has_injected and should_stop_fn(history_plus_candidate):
-                            injection_text = get_injection_fn()
+                        if not state.has_injected and self.experiment.model_generation_config.should_stop_fn(history_plus_candidate):
+                            injection_text = self.experiment.model_generation_config.should_stop_fn.get_injection_fn() #TODO give it current sequence
 
                             # use add_special_tokens=False to avoid adding BOS/EOS inside sentence
                             injection_tokens = self.tokenizer(injection_text, add_special_tokens=False).input_ids
@@ -176,7 +159,7 @@ class InjectionGeneration:
 
                     # check history + the token we just decided on
                     current_seq_history = all_generated_ids[idx] + [final_next_input_ids[-1]]
-                    if global_stop_fn(current_seq_history):
+                    if self.experiment.model_generation_config.global_stop_fn(current_seq_history):
                         state.is_finished = True
                 
                 # check if entire batch is finished
@@ -214,24 +197,19 @@ class InjectionGeneration:
                 
                 current_step += 1
             
-            batch_results = []
             for idx in range(current_batch_size):
                 state = batch_states[idx]
-                prompt_text = batch_prompts[idx]
-                upto_injection_text = self.tokenizer.decode(state.before_injection_ids, skip_special_tokens=True)
-                injection_text = self.tokenizer.decode(state.injection_ids, skip_special_tokens=True)
-                after_injection_text = self.tokenizer.decode(state.after_injection_ids, skip_special_tokens=True)
-                
-                batch_results.append(InjectedResult(
-                    prompt=prompt_text,
-                    upto_injection=upto_injection_text,
-                    injection=injection_text,
-                    after_injection=after_injection_text
-                ))
 
-            all_results.extend(batch_results)
+
+                upto_injection_text = self.tokenizer.convert_ids_to_tokens(state.before_injection_ids, skip_special_tokens=True)
+                injection_text = self.tokenizer.convert_ids_to_tokens(state.injection_ids, skip_special_tokens=True)
+                after_injection_text = self.tokenizer.convert_ids_to_tokens(state.after_injection_ids, skip_special_tokens=True)
+                
+                batch_datapoints[idx].model_cot_upto_injection = upto_injection_text
+                batch_datapoints[idx].model_injection = injection_text
+                batch_datapoints[idx].model_cot_after_injection = after_injection_text
 
             del past_key_values, inputs, outputs, next_token_logits
             torch.cuda.empty_cache()
 
-        return all_results
+        return self.experiment
