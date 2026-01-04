@@ -9,7 +9,6 @@ class SamplingParams:
     top_k: int = None
     top_p: float = None
     take_dumb_max: bool = True
-    seed: int = 42 # The seed used for the random number generator
     max_new_tokens: int = 100
 
 @dataclass
@@ -47,6 +46,7 @@ class Experiment:
     model_generation_config: ModelGenerationConfig
     judge_generation_config: JudgeGenerationConfig
     datapoints: list[DataPoint]  # List of indices of datapoints to use from the dataset
-    
+    seed: int = 42
+
     
    
