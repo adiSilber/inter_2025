@@ -1,5 +1,7 @@
 from dataclasses import dataclass
-from typing import List
+from typing import Callable, List
+
+from play.dataset_loaders import aggregated_dataset_loader
 
 @dataclass
 class SamplingParams:
@@ -8,6 +10,7 @@ class SamplingParams:
     top_p: float = None
     take_dumb_max: bool = True
     seed: int = 42 # The seed used for the random number generator
+    max_new_tokens: int = 100
 
 @dataclass
 class DataPoint:
@@ -24,14 +27,24 @@ class DataPoint:
     aha_moment_last_tokens: list[int]# The index of the last token of the aha moment in the response
 
 @dataclass
-class ExperimentConfig:
-    dataset_name: str
+class ModelGenerationConfig:
     model_name: str
+    should_stop_fn: Callable[[List[int]], bool]
+    get_injection_fn: Callable[[], str] 
+    global_stop_fn: Callable[[List[int]], bool]
     question_prompt_template: list[str] # The prompt template used
-    injection_text: list[str]   # The prompt injection content used (Can be empty)
-    injection_methodology :str 
-    judge_model_name: str
-    judge_model_prompt: list[str]
-    params: SamplingParams
+    sampling_params: SamplingParams
+@dataclass
+class JudgeGenerationConfig:
+    judge_name: str
+    judge_prompt: list[str]
+    sampling_params: SamplingParams
+@dataclass
+class Experiment:
+    dataset: aggregated_dataset_loader
+    model_generation_config: ModelGenerationConfig
+    judge_generation_config: JudgeGenerationConfig
     datapoints: list[DataPoint]  # List of indices of datapoints to use from the dataset
-
+    
+    
+   
