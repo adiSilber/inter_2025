@@ -1,0 +1,4 @@
+/home/ADV_2526a/evyataroren/inter_2025/.miniconda3/etc/conda/deactivate.d/~cuda-nvcc_deactivate.sh: line 20: CUDAARCHS_BACKUP: unbound variable
+slurmstepd: error: _cgroup_procs_check: failed on path (null)/cgroup.procs: No such file or directory
+slurmstepd: error: Cannot write to cgroup.procs for (null)
+slurmstepd: error: Unable to move pid 1551102 to init root cgroup (null)

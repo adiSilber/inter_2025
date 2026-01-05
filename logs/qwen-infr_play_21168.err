@@ -1,0 +1,4 @@
+  File "/home/ADV_2526a/evyataroren/inter_2025/play/test_injection.py", line 120
+    print(f"CoT Upto Injection (last 20 tokens): {''.join(dp.model_cot_upto_injection[-20:]).replace('Ġ', ' ').replace('Ċ', '\\n')}")
+                                                                                                                                    ^
+SyntaxError: f-string expression part cannot include a backslash

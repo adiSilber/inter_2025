@@ -1,0 +1,4 @@
+slurmstepd: error: *** JOB 21152 ON n-602 CANCELLED AT 2026-01-04T22:00:42 ***
+slurmstepd: error: _cgroup_procs_check: failed on path (null)/cgroup.procs: No such file or directory
+slurmstepd: error: Cannot write to cgroup.procs for (null)
+slurmstepd: error: Unable to move pid 2335631 to init root cgroup (null)
