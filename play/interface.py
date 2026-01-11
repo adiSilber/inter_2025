@@ -1,7 +1,28 @@
 from dataclasses import dataclass
-from typing import Callable, List
+from typing import Callable, List, Optional, Dict, Any
+from abc import ABC, abstractmethod
+import torch
 
 from play.dataset_loaders import aggregated_dataset_loader
+
+class ActivationCapturer(ABC):
+    def __init__(self):
+        self.activations: Dict[str, List[torch.Tensor]] = {}
+
+    @abstractmethod
+    def bind(self, model: torch.nn.Module):
+        """Analyze the model and prepare hooks."""
+        pass
+
+    @abstractmethod
+    def __enter__(self):
+        """Register hooks."""
+        pass
+
+    @abstractmethod
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Remove hooks."""
+        pass
 
 @dataclass
 class SamplingParams:
@@ -17,7 +38,7 @@ class DataPoint:
     question_contents: list[str]
     question_correct_answer: list[str]
     model_injection: list[str]  # The injection text as a list of tokens
-    model_injection_position: int = 0 # The index of the first token of the injection in the response
+    model_injection_position: int # The index of the first token of the injection in the response
     model_cot_upto_injection: list[str] # Substring of model_response up to the injection point
     model_cot_after_injection: list[str]
     model_response: list[str] # Full text of the model's response
@@ -25,14 +46,17 @@ class DataPoint:
     judge_decision: bool
     aha_moment_first_tokens: list[int]# The index of the first token of the aha moment in the response
     aha_moment_last_tokens: list[int]# The index of the last token of the aha moment in the response
+    should_capture_activations: bool = False
+    activations: list[dict] = None  # Optional field to store activations
 
 @dataclass
 class ModelGenerationConfig:
     model_name: str
-    should_stop_fn: Callable[[List[int]], bool]
-    get_injection_fn: Callable[[], str] 
-    global_stop_fn: Callable[[List[int]], bool]
-    question_prompt_template: list[str] # The prompt template used
+    model_path: str
+    should_stop_fn: Callable[[List[str]], bool]
+    get_injection_fn: Callable[[List[str]], str] 
+    global_stop_fn: Callable[[List[str]], bool]
+    question_prompt_template: Callable[[str], str]
     sampling_params: SamplingParams
 @dataclass
 class JudgeGenerationConfig:
@@ -47,6 +71,7 @@ class Experiment:
     judge_generation_config: JudgeGenerationConfig
     datapoints: list[DataPoint]  # List of indices of datapoints to use from the dataset
     seed: int = 42
+    activation_capturer: Optional[ActivationCapturer] = None
 
     
    
