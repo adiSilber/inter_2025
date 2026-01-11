@@ -201,9 +201,9 @@ class InjectionGeneration:
                 state = batch_states[idx]
 
 
-                upto_injection_text = self.tokenizer.convert_ids_to_tokens(state.before_injection_ids, skip_special_tokens=True)
-                injection_text = self.tokenizer.convert_ids_to_tokens(state.injection_ids, skip_special_tokens=True)
-                after_injection_text = self.tokenizer.convert_ids_to_tokens(state.after_injection_ids, skip_special_tokens=True)
+                upto_injection_text = [t.replace('Ġ', ' ').replace('Ċ', '\n') for t in self.tokenizer.convert_ids_to_tokens(state.before_injection_ids, skip_special_tokens=True)]
+                injection_text = [t.replace('Ġ', ' ').replace('Ċ', '\n') for t in self.tokenizer.convert_ids_to_tokens(state.injection_ids, skip_special_tokens=True)]
+                after_injection_text = [t.replace('Ġ', ' ').replace('Ċ', '\n') for t in self.tokenizer.convert_ids_to_tokens(state.after_injection_ids, skip_special_tokens=True)]
                 
                 batch_datapoints[idx].model_cot_upto_injection = upto_injection_text
                 batch_datapoints[idx].model_injection = injection_text
