@@ -1,0 +1,81 @@
+Sun Jan 11 12:09:34 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 550.120                Driver Version: 550.120        CUDA Version: 12.4     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA RTX A6000               Off |   00000000:01:00.0 Off |                  Off |
+| 50%   75C    P2            289W /  300W |   30885MiB /  49140MiB |    100%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   1  NVIDIA RTX A6000               Off |   00000000:21:00.0 Off |                  Off |
+| 30%   31C    P8             20W /  300W |     267MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   2  NVIDIA RTX A6000               Off |   00000000:41:00.0 Off |                  Off |
+| 54%   79C    P2            289W /  300W |   30885MiB /  49140MiB |    100%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   3  NVIDIA RTX A6000               Off |   00000000:61:00.0 Off |                  Off |
+| 30%   36C    P8             23W /  300W |     267MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   4  NVIDIA RTX A6000               Off |   00000000:81:00.0 Off |                  Off |
+| 39%   67C    P2            298W /  300W |   45189MiB /  49140MiB |     98%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   5  NVIDIA RTX A6000               Off |   00000000:A1:00.0 Off |                  Off |
+| 30%   29C    P2             70W /  300W |   12953MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   6  NVIDIA RTX A6000               Off |   00000000:C1:00.0 Off |                  Off |
+| 30%   24C    P8             27W /  300W |       2MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   7  NVIDIA RTX A6000               Off |   00000000:E1:00.0 Off |                  Off |
+| 30%   24C    P8             22W /  300W |       2MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|    0   N/A  N/A    945284      C   ...s/almogt/sampled-kd/venv/bin/python      30878MiB |
+|    1   N/A  N/A    945284      C   ...s/almogt/sampled-kd/venv/bin/python        260MiB |
+|    2   N/A  N/A    945210      C   ...s/almogt/sampled-kd/venv/bin/python      30878MiB |
+|    3   N/A  N/A    945210      C   ...s/almogt/sampled-kd/venv/bin/python        260MiB |
+|    4   N/A  N/A    982202      C   ...n/users/tomerporian/dev2/bin/python      45182MiB |
+|    5   N/A  N/A    983691      C   python                                      12946MiB |
++-----------------------------------------------------------------------------------------+
+loading dataset
+40 questions
+
+XXX Starting Injected Generation XXX
+Initializing generator...
+Loading tokenizer...
+Loading model...
+Model loaded.
+Running generated injected...
+
+XXX Starting Vanilla Generation XXX
+Loading model (Vanilla)...
+Running generated vanilla...
+
+XXX Comparison XXX
+Question 0:
+Injected CoT length (upto): 13
+Vanilla CoT length (upto): 14
+Injected Injection len: 17
+Vanilla Injection len: 17
+Captured steps - Injected: 258, Vanilla: 258
+Step 0, Layer model.layers.0 mismatch. Max diff: 0.00390625
+  Injected NaNs: False, Vanilla NaNs: False
+  Injected mean: -0.012062213383615017, std: 2.0246686935424805
+  Vanilla mean: -0.012065798044204712, std: 2.024693012237549
+Divergence found at step 0
+Activations match for first 0 steps.
+FAILURE: Activations do not match.

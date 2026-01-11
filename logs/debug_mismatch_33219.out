@@ -1,0 +1,75 @@
+Sun Jan 11 12:34:18 2026       
++---------------------------------------------------------------------------------------+
+| NVIDIA-SMI 535.183.01             Driver Version: 535.183.01   CUDA Version: 12.2     |
+|-----------------------------------------+----------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |         Memory-Usage | GPU-Util  Compute M. |
+|                                         |                      |               MIG M. |
+|=========================================+======================+======================|
+|   0  NVIDIA L40S                    Off | 00000000:25:00.0 Off |                    0 |
+| N/A   51C    P0             170W / 350W |  35576MiB / 46068MiB |     70%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   1  NVIDIA L40S                    Off | 00000000:26:00.0 Off |                    0 |
+| N/A   51C    P0             166W / 350W |  15404MiB / 46068MiB |     79%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   2  NVIDIA L40S                    Off | 00000000:45:00.0 Off |                    0 |
+| N/A   49C    P0             172W / 350W |  15444MiB / 46068MiB |     79%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   3  NVIDIA L40S                    Off | 00000000:46:00.0 Off |                    0 |
+| N/A   35C    P8              33W / 350W |      0MiB / 46068MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   4  NVIDIA L40S                    Off | 00000000:A5:00.0 Off |                    0 |
+| N/A   43C    P0             244W / 350W |  26546MiB / 46068MiB |     90%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   5  NVIDIA L40S                    Off | 00000000:A6:00.0 Off |                    0 |
+| N/A   39C    P0              82W / 350W |  24434MiB / 46068MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   6  NVIDIA L40S                    Off | 00000000:C5:00.0 Off |                    0 |
+| N/A   44C    P0             163W / 350W |  17782MiB / 46068MiB |     81%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   7  NVIDIA L40S                    Off | 00000000:C6:00.0 Off |                    0 |
+| N/A   41C    P0             243W / 350W |  24722MiB / 46068MiB |     84%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+                                                                                         
++---------------------------------------------------------------------------------------+
+| Processes:                                                                            |
+|  GPU   GI   CI        PID   Type   Process name                            GPU Memory |
+|        ID   ID                                                             Usage      |
+|=======================================================================================|
+|    0   N/A  N/A   1787429      C   ...dortirosh/envs/olmo2/bin/python3.11    34280MiB |
+|    0   N/A  N/A   1787430      C   ...dortirosh/envs/olmo2/bin/python3.11      424MiB |
+|    0   N/A  N/A   1787431      C   ...dortirosh/envs/olmo2/bin/python3.11      424MiB |
+|    0   N/A  N/A   1787432      C   ...dortirosh/envs/olmo2/bin/python3.11      424MiB |
+|    1   N/A  N/A   1787430      C   ...dortirosh/envs/olmo2/bin/python3.11    14916MiB |
+|    2   N/A  N/A   1787431      C   ...dortirosh/envs/olmo2/bin/python3.11    14916MiB |
+|    4   N/A  N/A   1690347      C   ...uslik/miniconda3/envs/he/bin/python    26538MiB |
+|    5   N/A  N/A   1690349      C   ...uslik/miniconda3/envs/he/bin/python    24426MiB |
+|    6   N/A  N/A   1787432      C   ...dortirosh/envs/olmo2/bin/python3.11    22074MiB |
+|    7   N/A  N/A   1650472      C   ...uslik/miniconda3/envs/he/bin/python    24714MiB |
++---------------------------------------------------------------------------------------+
+Using device: cuda
+Pad token info: ID=151643, Token='<｜end▁of▁sentence｜>'
+EOS token info: ID=151643, Token='<｜end▁of▁sentence｜>'
+
+Batch Approach 1: Manual Position IDs
+Attention Mask[0]: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+Position IDs[0]: [1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+Max Diff Layer 0 (Manual Pos): 0.015625
+
+Batch Approach 2: Default Position IDs
+Max Diff Layer 0 (Default Pos): 0.09375
+
+Batch Approach 3: Manual Position IDs (Pad=0)
+Max Diff Layer 0 (Mask=0): 0.015625
+
+Detailed Check Token 0 (First valid token):
+Single: [-1.607421875, 1.740234375, 0.90576171875, -1.212890625, -0.74609375, 0.3359375, 0.04833984375, -0.15966796875, 0.9951171875, 1.525390625]
+Batch1: [-1.607421875, 1.7392578125, 0.90576171875, -1.212890625, -0.74609375, 0.3359375, 0.048828125, -0.15966796875, 0.9951171875, 1.525390625]

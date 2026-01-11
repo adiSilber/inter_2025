@@ -1,0 +1,7 @@
+/specific/scratches/parallel/evyataroren-2025-12-31/inter_2025/.miniconda3/envs/inter2025_vllm/lib/python3.11/site-packages/transformers/utils/hub.py:110: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+Traceback (most recent call last):
+  File "/home/ADV_2526a/evyataroren/inter_2025/play/main.py", line 55, in <module>
+    model_path = os.path.join(workspace_root, "models/DS-qwen-7B/DeepSeek-R1-Distill-Qwen-7B")
+                 ^^
+NameError: name 'os' is not defined

@@ -1,0 +1,83 @@
+Sun Jan 11 12:49:12 2026       
++---------------------------------------------------------------------------------------+
+| NVIDIA-SMI 535.183.01             Driver Version: 535.183.01   CUDA Version: 12.2     |
+|-----------------------------------------+----------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |         Memory-Usage | GPU-Util  Compute M. |
+|                                         |                      |               MIG M. |
+|=========================================+======================+======================|
+|   0  NVIDIA L40S                    Off | 00000000:25:00.0 Off |                    0 |
+| N/A   55C    P0             310W / 350W |  35076MiB / 46068MiB |    100%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   1  NVIDIA L40S                    Off | 00000000:26:00.0 Off |                    0 |
+| N/A   58C    P0             308W / 350W |  29744MiB / 46068MiB |    100%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   2  NVIDIA L40S                    Off | 00000000:45:00.0 Off |                    0 |
+| N/A   55C    P0             304W / 350W |  29724MiB / 46068MiB |    100%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   3  NVIDIA L40S                    Off | 00000000:46:00.0 Off |                    0 |
+| N/A   34C    P8              33W / 350W |      0MiB / 46068MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   4  NVIDIA L40S                    Off | 00000000:A5:00.0 Off |                    0 |
+| N/A   38C    P0             179W / 350W |  26546MiB / 46068MiB |     12%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   5  NVIDIA L40S                    Off | 00000000:A6:00.0 Off |                    0 |
+| N/A   42C    P0             238W / 350W |  24434MiB / 46068MiB |     91%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   6  NVIDIA L40S                    Off | 00000000:C5:00.0 Off |                    0 |
+| N/A   48C    P0             271W / 350W |  29744MiB / 46068MiB |    100%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   7  NVIDIA L40S                    Off | 00000000:C6:00.0 Off |                    0 |
+| N/A   39C    P0             166W / 350W |  24722MiB / 46068MiB |     15%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+                                                                                         
++---------------------------------------------------------------------------------------+
+| Processes:                                                                            |
+|  GPU   GI   CI        PID   Type   Process name                            GPU Memory |
+|        ID   ID                                                             Usage      |
+|=======================================================================================|
+|    0   N/A  N/A   1787429      C   ...dortirosh/envs/olmo2/bin/python3.11    33780MiB |
+|    0   N/A  N/A   1787430      C   ...dortirosh/envs/olmo2/bin/python3.11      424MiB |
+|    0   N/A  N/A   1787431      C   ...dortirosh/envs/olmo2/bin/python3.11      424MiB |
+|    0   N/A  N/A   1787432      C   ...dortirosh/envs/olmo2/bin/python3.11      424MiB |
+|    1   N/A  N/A   1787430      C   ...dortirosh/envs/olmo2/bin/python3.11    29736MiB |
+|    2   N/A  N/A   1787431      C   ...dortirosh/envs/olmo2/bin/python3.11    29716MiB |
+|    4   N/A  N/A   1690347      C   ...uslik/miniconda3/envs/he/bin/python    26538MiB |
+|    5   N/A  N/A   1690349      C   ...uslik/miniconda3/envs/he/bin/python    24426MiB |
+|    6   N/A  N/A   1787432      C   ...dortirosh/envs/olmo2/bin/python3.11    29736MiB |
+|    7   N/A  N/A   1650472      C   ...uslik/miniconda3/envs/he/bin/python    24714MiB |
++---------------------------------------------------------------------------------------+
+loading dataset
+40 questions
+
+XXX Starting Injected Generation XXX
+Initializing generator...
+Loading tokenizer...
+Loading model...
+Model loaded.
+Running generated injected...
+
+XXX Starting Vanilla Generation XXX
+Loading model (Vanilla)...
+Running generated vanilla...
+
+XXX Comparison XXX
+Question 0:
+Injected CoT length (upto): 14
+Vanilla CoT length (upto): 14
+Injected Injection len: 17
+Vanilla Injection len: 17
+Captured steps - Injected: 258, Vanilla: 258
+Comparing 258 steps...
+------------------------------
+Global Max Diff: 0.0
+Global Mean Diff: nan
+Warning: NaNs encountered in difference calculation.
