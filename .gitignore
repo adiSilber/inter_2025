@@ -5,3 +5,6 @@ datasets/datasets
 .
 **/__pycache__/**
 .DS_Store
+logs
+*.err
+*.out
