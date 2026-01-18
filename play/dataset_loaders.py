@@ -8,7 +8,7 @@ from typing import List, Dict, Any
 
 @dataclass
 class question_item:
-    # TODO(yonatan): Consider adding quesiton ID
+    id: str
     q : str
     a : str
     misc_specific_misc : Dict[str, Any]
@@ -82,6 +82,7 @@ class AI2ARCLoader(dataset_loader):
                 full_q = f"{q}\n{formatted_choices}"
                 
                 self.data.append(question_item(
+                    id=row['id'],
                     q=full_q,
                     a=row['answerKey'],
                     misc_specific_misc={'id': row['id']}
@@ -94,6 +95,7 @@ class AIMELoader(dataset_loader):
             df = pd.read_csv(path)
             for _, row in df.iterrows():
                 self.data.append(question_item(
+                    id=str(row['ID']),
                     q=row['Question'],
                     a=str(row['Answer']),
                     misc_specific_misc={
@@ -111,6 +113,7 @@ class MATH500Loader(dataset_loader):
                 for line in f:
                     item = json.loads(line)
                     self.data.append(question_item(
+                        id=item['unique_id'],
                         q=item['problem'],
                         a=item['solution'],
                         misc_specific_misc={
@@ -128,6 +131,7 @@ class HumanEvalLoader(dataset_loader):
             df = pd.read_parquet(path)
             for _, row in df.iterrows():
                 self.data.append(question_item(
+                    id=row['task_id'],
                     q=row['prompt'],
                     a=row['canonical_solution'],
                     misc_specific_misc={
@@ -148,8 +152,9 @@ class GPQALoader(dataset_loader):
             
             # Load gpqa_diamond
             ds = load_dataset("Idavidrein/gpqa", "gpqa_diamond", split="train", cache_dir=cache_dir)
-            for row in ds:
+            for idx, row in enumerate(ds):
                 self.data.append(question_item(
+                    id=f"gpqa_{idx}",
                     q=row['Question'],
                     a=row['Correct Answer'],
                     misc_specific_misc={
