@@ -13,7 +13,11 @@ class ActivationCapturer(ABC):
     def bind(self, model: torch.nn.Module):
         """Analyze the model and prepare hooks."""
         pass
-
+    def captured_activations(self) -> Dict[str, List[torch.Tensor]]:
+        return self.activations
+    def clean_captured_activations(self):
+        
+        self.activations = {}
     @abstractmethod
     def __enter__(self):
         """Register hooks."""

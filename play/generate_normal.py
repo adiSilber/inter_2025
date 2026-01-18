@@ -134,7 +134,7 @@ class GenerateNormal:
                                 continue
                                 
                             token_activations = {}
-                            for layer_name, captured_data in capturer.activations.items():
+                            for layer_name, captured_data in capturer.captured_activations().items():
                                 if len(captured_data) > 0:
                                     # Handle potential shape differences (e.g. attention matrices)
                                     data = captured_data[0]
@@ -146,7 +146,7 @@ class GenerateNormal:
                                         # Fallback or specific handling if needed
                                         pass
                             dp.activations.append(token_activations)
-                capturer.activations.clear() # make sure to reset the capturer for next use 
+                capturer.clean_captured_activations() # make sure to reset the capturer for next use 
             
             past_key_values = outputs.past_key_values
             next_token_logits = outputs.logits[:, -1, :]
@@ -228,13 +228,14 @@ class GenerateNormal:
                     for idx, dp in enumerate(batch_datapoints):
                         if dp.should_capture_activations and not batch_states[idx].is_finished:
                             token_activations = {}
-                            for layer_name, captured_data in capturer.activations.items():
+                            for layer_name, captured_data in capturer.captured_activations().items():
                                 if len(captured_data) > 0:
                                     data = captured_data[0]
                                     # During generation, seq_len is 1
                                     if data.shape[0] == current_batch_size:
                                         token_activations[layer_name] = data[idx, 0].clone()
                             dp.activations.append(token_activations)
+                    capturer.clean_captured_activations() # make sure to reset the capturer for next use
                 
                 past_key_values = outputs.past_key_values
                 next_token_logits = outputs.logits[:, -1, :]

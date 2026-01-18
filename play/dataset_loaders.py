@@ -82,6 +82,7 @@ class AI2ARCLoader(dataset_loader):
                 full_q = f"{q}\n{formatted_choices}"
                 
                 self.data.append(question_item(
+                    id=row['id'],
                     q=full_q,
                     a=row['answerKey'],
                     question_id=str(row['id']),
@@ -95,6 +96,7 @@ class AIMELoader(dataset_loader):
             df = pd.read_csv(path)
             for _, row in df.iterrows():
                 self.data.append(question_item(
+                    id=str(row['ID']),
                     q=row['Question'],
                     a=str(row['Answer']),
                     question_id=str(row['ID']),
@@ -113,6 +115,7 @@ class MATH500Loader(dataset_loader):
                 for line in f:
                     item = json.loads(line)
                     self.data.append(question_item(
+                        id=item['unique_id'],
                         q=item['problem'],
                         a=item['solution'],
                         question_id=item['unique_id'],
@@ -131,6 +134,7 @@ class HumanEvalLoader(dataset_loader):
             df = pd.read_parquet(path)
             for _, row in df.iterrows():
                 self.data.append(question_item(
+                    id=row['task_id'],
                     q=row['prompt'],
                     a=row['canonical_solution'],
                     question_id=row['task_id'],
@@ -152,8 +156,9 @@ class GPQALoader(dataset_loader):
             
             # Load gpqa_diamond
             ds = load_dataset("Idavidrein/gpqa", "gpqa_diamond", split="train", cache_dir=cache_dir)
-            for row in ds:
+            for idx, row in enumerate(ds):
                 self.data.append(question_item(
+                    id=f"gpqa_{idx}",
                     q=row['Question'],
                     a=row['Correct Answer'],
                     question_id=str(row['Record ID']),
