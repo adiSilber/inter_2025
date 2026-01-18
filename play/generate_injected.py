@@ -150,6 +150,8 @@ class InjectionGeneration:
                                         # Fallback or specific handling if needed
                                         pass
                             dp.activations.append(token_activations)
+                        capturer.activations.clear() # make sure to reset the capturer for next use 
+
             
             past_key_values = outputs.past_key_values
             next_token_logits = outputs.logits[:, -1, :]
@@ -256,6 +258,8 @@ class InjectionGeneration:
                                     if data.shape[0] == current_batch_size:
                                         token_activations[layer_name] = data[idx, 0].clone()
                             dp.activations.append(token_activations)
+                    capturer.activations.clear() # make sure to reset the capturer for next use 
+
                 
                 past_key_values = outputs.past_key_values
                 next_token_logits = outputs.logits[:, -1, :]
