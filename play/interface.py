@@ -30,7 +30,7 @@ class SamplingParams:
     top_k: int = None
     top_p: float = None
     take_dumb_max: bool = True
-    max_new_tokens: int = 100
+    max_new_tokens: int = 1000
 
 @dataclass
 class DataPoint:
@@ -53,7 +53,7 @@ class DataPoint:
 class ModelGenerationConfig:
     model_name: str
     model_path: str
-    should_stop_fn: Callable[[List[str]], bool]
+    should_stop_fn: Callable[[List[str]], bool] = lambda:False
     get_injection_fn: Callable[[List[str]], str] 
     global_stop_fn: Callable[[List[str]], bool]
     question_prompt_template: Callable[[str], str]
@@ -64,14 +64,26 @@ class JudgeGenerationConfig:
     judge_model_path: str
     judge_prompt: list[str]
     sampling_params: SamplingParams
-@dataclass
+
 class Experiment:
     dataset: aggregated_dataset_loader
     model_generation_config: ModelGenerationConfig
     judge_generation_config: JudgeGenerationConfig
-    datapoints: list[DataPoint]  # List of indices of datapoints to use from the dataset
+    datapoints: list[DataPoint] = []  # List of indices of datapoints to use from the dataset
     seed: int = 42
     activation_capturer: Optional[ActivationCapturer] = None
-
     
-   
+    def populate_datapoints(self):
+        for question_item in self.dataset:
+            data_point = DataPoint(
+                question_id=question_item.id,
+                question_contents=question_item.q,
+                question_correct_answer=question_item.a,
+                model_injection=[],
+                model_injection_position=0,
+                model_cot_upto_injection=[],
+                model_cot_after_injection=[],
+                model_response=[],
+                judge_response=[],
+            )
+            self.datapoints.append(data_point)

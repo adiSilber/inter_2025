@@ -1,16 +1,17 @@
-from dataclasses import dataclass
+from interface import DataPoint
 import os
 import random
 import json
 import pandas as pd
 from typing import List, Dict, Any
+from dataclasses import dataclass
 
 
 @dataclass
 class question_item:
-    # TODO(yonatan): Consider adding quesiton ID
     q : str
     a : str
+    question_id : str
     misc_specific_misc : Dict[str, Any]
 
 
@@ -62,7 +63,6 @@ class dataset_loader:
     def __len__(self) -> int:
         return len(self.data)
 
-
 class AI2ARCLoader(dataset_loader):
     def load_data(self):
         # Try ARC-Challenge first
@@ -84,6 +84,7 @@ class AI2ARCLoader(dataset_loader):
                 self.data.append(question_item(
                     q=full_q,
                     a=row['answerKey'],
+                    question_id=str(row['id']),
                     misc_specific_misc={'id': row['id']}
                 ))
 
@@ -96,6 +97,7 @@ class AIMELoader(dataset_loader):
                 self.data.append(question_item(
                     q=row['Question'],
                     a=str(row['Answer']),
+                    question_id=str(row['ID']),
                     misc_specific_misc={
                         'ID': row['ID'],
                         'Year': row['Year'],
@@ -113,6 +115,7 @@ class MATH500Loader(dataset_loader):
                     self.data.append(question_item(
                         q=item['problem'],
                         a=item['solution'],
+                        question_id=item['unique_id'],
                         misc_specific_misc={
                             'answer': item['answer'],
                             'subject': item['subject'],
@@ -130,6 +133,7 @@ class HumanEvalLoader(dataset_loader):
                 self.data.append(question_item(
                     q=row['prompt'],
                     a=row['canonical_solution'],
+                    question_id=row['task_id'],
                     misc_specific_misc={
                         'task_id': row['task_id'],
                         'test': row['test'],
@@ -152,7 +156,9 @@ class GPQALoader(dataset_loader):
                 self.data.append(question_item(
                     q=row['Question'],
                     a=row['Correct Answer'],
+                    question_id=str(row['Record ID']),
                     misc_specific_misc={
+                        'Record ID': row['Record ID'],
                         'Incorrect Answer 1': row['Incorrect Answer 1'],
                         'Incorrect Answer 2': row['Incorrect Answer 2'],
                         'Incorrect Answer 3': row['Incorrect Answer 3']
