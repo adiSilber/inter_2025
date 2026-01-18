@@ -1,10 +1,8 @@
 from play.interface import Experiment, ModelGenerationConfig, SamplingParams, ActivationCapturer
 from play.generate_normal import GenerateNormal
+from play.dataset_loaders import AI2ARCLoader, aggregated_dataset_loader
 import torch
 from typing import Dict, List
-
-
-
 
 
 class EverythingCapturer(ActivationCapturer):
@@ -67,7 +65,7 @@ class EverythingCapturer(ActivationCapturer):
         for handle in self.hook_handles:
             handle.remove()
         self.hook_handles.clear()
-
+        self.clean_captured_activations()
 
 
 
@@ -75,8 +73,17 @@ class EverythingCapturer(ActivationCapturer):
 MODEL_PATH = "model_weights/"
 
 if __name__ == "__main__":
-    activation_capturer = ActivationCapturer()
+    activation_capturer = EverythingCapturer()
+    dataset = aggregated_dataset_loader([ AI2ARCLoader(base_path="datasets/")])
     experiment = Experiment(
+        judge_generation_config=JudgeGenerationConfig(
+            judge_model_path=MODEL_PATH,
+            sampling_params=SamplingParams(
+                max_new_tokens=1000
+            )
+        ),
+        dataset=dataset,
+        activation_capturer=activation_capturer,
         model_generation_config=ModelGenerationConfig(
             model_path=MODEL_PATH,
             sampling_params=SamplingParams(
