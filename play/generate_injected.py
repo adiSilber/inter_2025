@@ -147,10 +147,9 @@ class InjectionGeneration:
                                         if t < data.shape[1]:
                                             token_activations[layer_name] = data[idx, t].clone()
                                     else:
-                                        # Fallback or specific handling if needed
-                                        pass
+                                        raise ValueError(f"Unexpected captured data shape: {data.shape} when trying to populate datapoint activations.")
                             dp.activations.append(token_activations)
-                        capturer.clean_captured_activations() # make sure to reset the capturer for next use 
+                        capturer.clean_captured_activations() # make sure to reset the capturer for next use.  it DOESN'T remove indices from the arrays as we rely on them for accessing the current positions. only empties the tensors.
 
             
             past_key_values = outputs.past_key_values
@@ -257,8 +256,10 @@ class InjectionGeneration:
                                     # During generation, seq_len is 1
                                     if data.shape[0] == current_batch_size:
                                         token_activations[layer_name] = data[idx, 0].clone()
+                                    else:
+                                        raise ValueError(f"Unexpected captured data shape: {data.shape} when trying to populate datapoint activations.")
                             dp.activations.append(token_activations)
-                    capturer.clean_captured_activations() # make sure to reset the capturer for next use 
+                    capturer.clean_captured_activations() # make sure to reset the capturer for next use. it DOESN'T remove indices from the arrays as we rely on them for accessing the current positions. only empties the tensors.
 
                 
                 past_key_values = outputs.past_key_values

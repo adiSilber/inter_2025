@@ -15,9 +15,10 @@ class ActivationCapturer(ABC):
         pass
     def captured_activations(self) -> Dict[str, List[torch.Tensor]]:
         return self.activations
-    def clean_captured_activations(self):
-        
-        self.activations = {}
+    def clean_captured_activations(self): # we never remove the indices from the arrays as we rely on them for accessing the current positions in the generators. we only empty the tensors.
+        for arr in self.activations.values():
+            for i in range(len(arr)):
+                arr[i] = None
     @abstractmethod
     def __enter__(self):
         """Register hooks."""
