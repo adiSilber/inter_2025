@@ -70,6 +70,7 @@ class JudgeGenerationConfig:
     judge_prompt: list[str]
     sampling_params: SamplingParams
 
+@dataclass
 class Experiment:
     dataset: aggregated_dataset_loader
     model_generation_config: ModelGenerationConfig
