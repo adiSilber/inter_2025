@@ -19,19 +19,67 @@ class GenerateSimple:
             self.config.model_path, 
             trust_remote_code=True
         )
-        
+        kwargs = {}
+        if experiment.activation_capturer is not None:
+            kwargs['attn_implementation']="eager" # Explicitly use eager to ensure weights can be captured
+            
         # Load Model
         self.model = AutoModelForCausalLM.from_pretrained(
             self.config.model_path, 
             dtype=self.config.dtype,
             device_map="auto" if self.device == "cuda" else None,
-            trust_remote_code=True
+            trust_remote_code=True,
+            **kwargs
         )
         
         if self.device == "cpu":
             self.model.to(self.device)
         
         self.model.eval()
+
+    def _safe_model_call(self, **kwargs):
+        try:
+            return self.model(**kwargs)
+        except RuntimeError as e:
+            print('\n--- Model forward RuntimeError diagnostics ---')
+            print('Error:', e)
+            inp = kwargs.get('input_ids')
+            print('input_ids:', type(inp), getattr(inp, 'shape', None))
+            pkv = kwargs.get('past_key_values')
+            if pkv is None:
+                print('past_key_values: None')
+            else:
+                try:
+                    print('past_key_values length:', len(pkv))
+                    # print shapes for first two layers if possible
+                    for i, layer_kv in enumerate(pkv[:2]):
+                        shapes = []
+                        try:
+                            for arr in layer_kv:
+                                shapes.append(getattr(arr, 'shape', str(type(arr))))
+                        except Exception:
+                            shapes = str(type(layer_kv))
+                        print(f'  layer {i} kv shapes: {shapes}')
+                except Exception as e2:
+                    print('Could not introspect past_key_values:', e2)
+
+            # Try to inspect first attention module parameters
+            try:
+                m = self.model
+                layer = None
+                if hasattr(m, 'model') and hasattr(m.model, 'layers'):
+                    layer = m.model.layers[0]
+                elif hasattr(m, 'layers'):
+                    layer = m.layers[0]
+                if layer is not None and hasattr(layer, 'self_attn'):
+                    attn = layer.self_attn
+                    for name, param in attn.named_parameters():
+                        print('attn param', name, getattr(param, 'shape', None))
+            except Exception as e3:
+                print('Failed to inspect model layers:', e3)
+
+            print('--- End diagnostics ---\n')
+            raise
 
     def unload_model(self):
         """
@@ -81,7 +129,8 @@ class GenerateSimple:
         formatted_prompt = self.config.question_prompt_template(datapoint.question_contents)
         
         input_ids = self.tokenizer.encode(formatted_prompt, return_tensors="pt").to(self.device)
-        datapoint.question_formatted_contents_tokenized = [t.replace('Ġ', ' ').replace('Ċ', '\n') for t in self.tokenizer.convert_ids_to_tokens(input_ids, skip_special_tokens=True)]
+        ids_list = input_ids[0].tolist()
+        datapoint.question_formatted_contents_tokenized = [t.replace('Ġ', ' ').replace('Ċ', '\n') for t in self.tokenizer.convert_ids_to_tokens(ids_list, skip_special_tokens=True)]
 
         # we need a_n-1 for the context, but the a_n is used to generate the first token, so we include it's activations in `upto_injection_activations`
         context_ids = input_ids[:, :-1] # All but last token
@@ -92,7 +141,7 @@ class GenerateSimple:
         
         # prefill, get kv cache
         with ctx_manager, torch.no_grad():
-            outputs = self.model(input_ids=context_ids, use_cache=True)
+            outputs = self._safe_model_call(input_ids=context_ids, use_cache=True)
             past_key_values = outputs.past_key_values
 
         # save activations for question (prefill)
@@ -113,25 +162,25 @@ class GenerateSimple:
         # generate upto injection or end
         with ctx_manager, torch.no_grad():
             while (
-                len(tokens_upto_injection) <= self.experiment.model_generation_config.sampling_params.max_new_tokens and # max tokens
-                    not self.experiment.model_generation_config.should_stop_fn(tokens_upto_injection) and # stop to inject
-                    not self.experiment.model_generation_config.global_stop_fn(tokens_upto_injection) ): # global stop
+                len(tokens_upto_injection) < self.experiment.model_generation_config.sampling_params.max_new_tokens and # max tokens
+                    not self.experiment.model_generation_config.should_stop_fn(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection, skip_special_tokens=False)) and # stop to inject (token strings)
+                    not self.experiment.model_generation_config.global_stop_fn(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection, skip_special_tokens=False)) ): # global stop (token strings)
                     # generate next token
-                    outputs = self.model(
+                    outputs = self._safe_model_call(
                         input_ids=next_input_id,
                         past_key_values=past_key_values,
                         use_cache=True
                     )
                     # update cache
                     past_key_values = outputs.past_key_values
-                    
+
                     # sample
                     next_token = self._sample_token(outputs.logits[:, -1, :])
-                    # save token
+                    # save token id
                     tokens_upto_injection.append(next_token.item())
-                    
+
                     #update next token input
-                    next_input_id = next_token
+                    next_input_id = next_token.unsqueeze(-1)
         if should_capture:
             # capture all activations upto injection or end
             captured = capturer.captured_activations()
@@ -142,21 +191,22 @@ class GenerateSimple:
             capturer.kill_activations_array_reset_index()
         
         datapoint.upto_injection_tokens = [t.replace('Ġ', ' ').replace('Ċ', '\n') for t in self.tokenizer.convert_ids_to_tokens(
-            torch.tensor([tokens_upto_injection]), 
+            tokens_upto_injection, 
             skip_special_tokens=True
         )]
 
-        if len(tokens_upto_injection) <= self.experiment.model_generation_config.sampling_params.max_new_tokens and not self.experiment.model_generation_config.global_stop_fn(tokens_upto_injection): # we do need to inject, this is what broke the loop
+        if len(tokens_upto_injection) < self.experiment.model_generation_config.sampling_params.max_new_tokens and not self.experiment.model_generation_config.global_stop_fn(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection, skip_special_tokens=False)): # we do need to inject, this is what broke the loop
 
             inject_text = self.experiment.model_generation_config.get_injection_fn(tokens_upto_injection)
             inject_tokens = self.tokenizer.encode(inject_text, return_tensors="pt").to(self.device)
-            datapoint.injection_tokenized = [t.replace('Ġ', ' ').replace('Ċ', '\n') for t in self.tokenizer.convert_ids_to_tokens(inject_tokens, skip_special_tokens=True)]
+            inject_tokens_list = inject_tokens[0].tolist()
+            datapoint.injection_tokenized = [t.replace('Ġ', ' ').replace('Ċ', '\n') for t in self.tokenizer.convert_ids_to_tokens(inject_tokens_list, skip_special_tokens=True)]
 
             
             context_ids = inject_tokens[:, :-1] # All but last token
             trigger_token = inject_tokens[:, -1:] # first token for generation
             with ctx_manager, torch.no_grad():
-                outputs = self.model(
+                outputs = self._safe_model_call(
                             input_ids=context_ids,
                             past_key_values=past_key_values,
                             use_cache=True
@@ -176,22 +226,21 @@ class GenerateSimple:
 
             next_input_id  = trigger_token
             with ctx_manager, torch.no_grad():
-                while ( len(tokens_upto_injection+tokens_after_injection) <= self.experiment.model_generation_config.sampling_params.max_new_tokens and # max tokens
-                    not self.experiment.model_generation_config.global_stop_fn(tokens_after_injection) ): # global stop
-                        outputs = self.model(
+                while ( len(tokens_upto_injection+tokens_after_injection) < self.experiment.model_generation_config.sampling_params.max_new_tokens and # max tokens
+                    not self.experiment.model_generation_config.global_stop_fn(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection + tokens_after_injection, skip_special_tokens=False)) ): # global stop on combined sequence
+                        outputs = self._safe_model_call(
                             input_ids=next_input_id,
                             past_key_values=past_key_values,
                             use_cache=True
                         )
-                        
+
                         past_key_values = outputs.past_key_values
-                        
-                            
+
                         next_token = self._sample_token(outputs.logits[:, -1, :])
-                        
+
                         tokens_after_injection.append(next_token.item())
-                        
-                        next_input_id = next_token
+
+                        next_input_id = next_token.unsqueeze(-1)
             if should_capture:
                 captured = capturer.captured_activations()
                 datapoint.activations_after_injection = {
@@ -203,131 +252,40 @@ class GenerateSimple:
 
             
             datapoint.after_injection_tokens = [t.replace('Ġ', ' ').replace('Ċ', '\n') for t in self.tokenizer.convert_ids_to_tokens(
-                torch.tensor([tokens_after_injection]), 
+                tokens_after_injection, 
                 skip_special_tokens=True
             )]
 
 
-                
-
-    def _save_activations_to_datapoint(self, datapoint: DataPoint, capturer: ActivationCapturer):
-
-
-        """
-        Extracts activations from the capturer, moves them to CPU, and stores them 
-        in the datapoint before the capturer cleans them.
-        """
-        captured_data = capturer.captured_activations()
-        
-        # We need to construct the list of dicts structure: List[Dict[layer_name, Tensor]]
-        # The capturer returns Dict[layer_name, List[Tensor]]
-        
-        # Get the length of the sequence captured
-        if not captured_data:
-            return
-            
-        seq_len = len(next(iter(captured_data.values())))
-        
-        activations_list = []
-        for i in range(seq_len):
-            step_activations = {}
-            for layer_name, tensor_list in captured_data.items():
-                tensor = tensor_list[i]
-                if tensor is not None:
-                    # Move to CPU to save GPU memory and detach from graph
-                    step_activations[layer_name] = tensor.cpu().detach()
-                else:
-                    step_activations[layer_name] = None
-            activations_list.append(step_activations)
-            
-        datapoint.activations = activations_list
-        
-        # Clean the capturer for the next pass
-        capturer.clean_captured_activations()
-
     def _sample_token(
-            self,
-            logits: torch.Tensor,
-        ) -> torch.Tensor:
-            config = self.experiment.model_generation_config.sampling_params
+        self,
+        logits: torch.Tensor,
+    ) -> torch.Tensor:
+        config = self.experiment.model_generation_config.sampling_params
 
 
-            if config.take_dumb_max or config.temperature == 0:
-                return torch.argmax(logits, dim=-1)
+        if config.take_dumb_max or config.temperature == 0:
+            return torch.argmax(logits, dim=-1)
+        
+        logits = logits / config.temperature
+        
+        if config.top_k is not None and config.top_k > 0:
+            top_k = min(config.top_k, logits.size(-1))
+            indices_to_remove = logits < torch.topk(logits, top_k)[0][..., -1, None]
+            logits[indices_to_remove] = float('-inf')
+        
+        if config.top_p is not None and config.top_p < 1.0:
+            sorted_logits, sorted_indices = torch.sort(logits, descending=True, dim=-1)
+            cumulative_probs = torch.cumsum(torch.softmax(sorted_logits, dim=-1), dim=-1)
             
-            logits = logits / config.temperature
+            sorted_indices_to_remove = cumulative_probs > config.top_p
+            sorted_indices_to_remove[..., 0] = False
             
-            if config.top_k is not None and config.top_k > 0:
-                top_k = min(config.top_k, logits.size(-1))
-                indices_to_remove = logits < torch.topk(logits, top_k)[0][..., -1, None]
-                logits[indices_to_remove] = float('-inf')
-            
-            if config.top_p is not None and config.top_p < 1.0:
-                sorted_logits, sorted_indices = torch.sort(logits, descending=True, dim=-1)
-                cumulative_probs = torch.cumsum(torch.softmax(sorted_logits, dim=-1), dim=-1)
-                
-                sorted_indices_to_remove = cumulative_probs > config.top_p
-                sorted_indices_to_remove[..., 0] = False
-                
-                indices_to_remove = sorted_indices_to_remove.scatter(
-                    -1, sorted_indices, sorted_indices_to_remove
-                )
-                logits[indices_to_remove] = float('-inf')
-            
-            # Sample from the filtered distribution
-            probs = torch.softmax(logits, dim=-1)
-            return torch.multinomial(probs, num_samples=1).squeeze(-1)
-
-
-def generate_with_manual_kv_cache(
-    model_name: str, 
-    prompt_text: str, 
-    max_new_tokens: int = 10
-):
-    # 1. Setup
-    generated_sequence = input_ids 
-
-    # 3. Prefill Step
-    # We pass the full prompt to get the initial KV cache.
-    # use_cache=True is default for generation, but explicit here for clarity.
-    
-
-    print(f"Initial prompt: '{prompt_text}'")
-    print("Generating...")
-
-    # 4. Decoding Loop (Autoregressive)
-    for i in range(max_new_tokens):
-        with torch.no_grad():
-            # STRICT REQUIREMENT:
-            # When passing past_key_values, input_ids must ONLY be the last token.
-            # Shape of next_token: [batch_size, 1]
-            outputs = model(
-                input_ids=next_token, 
-                past_key_values=past_key_values,
-                use_cache=True
+            indices_to_remove = sorted_indices_to_remove.scatter(
+                -1, sorted_indices, sorted_indices_to_remove
             )
-            
-            # Update the cache for the next iteration
-            past_key_values = outputs.past_key_values
-            
-            # Get logits. Since input was 1 token, logits shape is [batch, 1, vocab]
-            next_token_logits = outputs.logits[:, -1, :]
-            
-            # Greedy decode
-            next_token = torch.argmax(next_token_logits, dim=-1).unsqueeze(0)
-            
-            # Append to full sequence
-            generated_sequence = torch.cat([generated_sequence, next_token], dim=1)
-            
-            # Optional: Decode and print current step for transparency
-            decoded_token = tokenizer.decode(next_token[0])
-            print(f"Step {i+1}: {decoded_token}")
-
-    # 5. Final Output
-    full_text = tokenizer.decode(generated_sequence[0], skip_special_tokens=True)
-    print("\n--- Final Generated Text ---")
-    print(full_text)
-
-# Run the function
-if __name__ == "__main__":
-    generate_with_manual_kv_cache("gpt2", "The logic of computer science is")
+            logits[indices_to_remove] = float('-inf')
+        
+        # Sample from the filtered distribution
+        probs = torch.softmax(logits, dim=-1)
+        return torch.multinomial(probs, num_samples=1).squeeze(-1)
