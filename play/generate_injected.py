@@ -30,7 +30,7 @@ class InjectionGeneration:
         # Using device_map=None and manual .to(device) to avoid accelerate hang
         self.model = AutoModelForCausalLM.from_pretrained(
             experiment.model_generation_config.model_path, 
-            dtype=torch.float32,
+            torch_dtype=experiment.model_generation_config.dtype,
             # device_map="cpu" if device == "cpu" else "auto",
             attn_implementation="eager"
         ).to(self.device)
