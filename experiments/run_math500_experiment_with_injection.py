@@ -343,17 +343,7 @@ def main():
             else:
                 print(f"      {activation_name}: None")
     
-    # # Run judge validation
-    # print("\n3. Running judge validation...")
-    # run_judge_validation(experiment)
-    
-    # # Count results
-    # correct = sum(1 for dp in experiment.datapoints if dp.judge_decision)
-    # total = len(experiment.datapoints)
-    # print(f"   Judge results: {correct}/{total} correct ({100*correct/total:.1f}%)")
-    
-    # Save experiment
-    output_dir = "/home/ADV_2526a/evyataroren/inter_2025/experiments"
+    output_dir = "/home/ADV_2526a/evyataroren/inter_2025/artifacts"
     os.makedirs(output_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_path = os.path.join(output_dir, f"math500_no_injection_{timestamp}.pkl")

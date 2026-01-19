@@ -124,10 +124,10 @@ def main():
     
     
     # Save experiment
-    output_dir = "/home/ADV_2526a/evyataroren/inter_2025/experiments"
+    output_dir = "/home/ADV_2526a/evyataroren/inter_2025/artifacts"
     os.makedirs(output_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_path = os.path.join(output_dir, f"math500_no_injection_{timestamp}.pkl")
+    output_path = os.path.join(output_dir, f"math500_clean_no_activations_{timestamp}.pkl")
     
     print(f"\n4. Saving datapoints to {output_path} (only datapoints will be pickled)...")
     # Save only the datapoints list to avoid pickling non-serializable model/code objects
