@@ -33,6 +33,23 @@ class GenerateSimple:
         
         self.model.eval()
 
+    def unload_model(self):
+        """
+        Unload model weights and free GPU/CPU memory.
+        """
+        print("Unloading model...")
+        if hasattr(self, 'model'):
+            del self.model
+        if hasattr(self, 'tokenizer'):
+            del self.tokenizer
+        
+        # Clear CUDA cache if using GPU
+        if self.device == "cuda" and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+        
+        print("Model unloaded and memory cleared.")
+
     def run(self):
         """
         Main execution loop. Iterates over all datapoints in the experiment.

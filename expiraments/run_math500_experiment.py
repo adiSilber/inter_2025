@@ -214,6 +214,9 @@ def main():
     experiment = generator.generate(batch_size=4)
     print("   Generation complete!")
     
+    # Unload model to free memory
+    generator.unload_model()
+    
     # Verify activations were captured
     total_activations = sum(len(dp.activations) if dp.activations else 0 for dp in experiment.datapoints)
     print(f"   Captured activations for {total_activations} tokens across all datapoints")
