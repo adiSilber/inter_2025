@@ -1,4 +1,3 @@
-from interface import DataPoint
 import os
 import random
 import json

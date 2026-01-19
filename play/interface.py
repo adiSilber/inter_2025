@@ -1,9 +1,11 @@
-from dataclasses import dataclass
-from typing import Callable, List, Optional, Dict, Any
+from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import Callable, List, Optional, Dict, Any, TYPE_CHECKING
 from abc import ABC, abstractmethod
 import torch
 
-from play.dataset_loaders import aggregated_dataset_loader
+if TYPE_CHECKING:
+    from play.dataset_loaders import aggregated_dataset_loader
 
 class ActivationCapturer(ABC):
     def __init__(self):
@@ -46,22 +48,22 @@ class DataPoint:
     question_id: str
     question_correct_answer: str
     question_contents:str
-    question_formatted_contents_tokenized: list[str]
+    question_formatted_contents_tokenized: list[str] = field(default_factory=list)
     
 
-    injection:str
-    injection_tokenized: list[str]  # The injection text as a list of tokens
+    injection:str = ""
+    injection_tokenized: list[str] = field(default_factory=list)  # The injection text as a list of tokens
 
 
-    upto_injection_tokens: list[str] # Substring of model_response up to the injection point
-    after_injection_tokens: list[str]
+    upto_injection_tokens: list[str] = field(default_factory=list) # Substring of model_response up to the injection point
+    after_injection_tokens: list[str] = field(default_factory=list)
 
 
-    judge_response: list[str]
-    judge_decision: bool
+    judge_response: list[str] = field(default_factory=list)
+    judge_decision: bool = False
 
-    aha_moment_first_tokens: list[int]# The index of the first token of the aha moment in the response
-    aha_moment_last_tokens: list[int]# The index of the last token of the aha moment in the response
+    aha_moment_first_tokens: list[int] = field(default_factory=list)# The index of the first token of the aha moment in the response
+    aha_moment_last_tokens: list[int] = field(default_factory=list)# The index of the last token of the aha moment in the response
     should_capture_activations: bool = False
 
 
@@ -74,11 +76,12 @@ class DataPoint:
 class ModelGenerationConfig:
     model_name: str
     model_path: str
-    should_stop_fn: Callable[[List[str]], bool] = lambda:False
     get_injection_fn: Callable[[List[str]], str] 
     global_stop_fn: Callable[[List[str]], bool]
     question_prompt_template: Callable[[str], str]
     sampling_params: SamplingParams
+    should_stop_fn: Callable[[List[str]], bool] = lambda:False
+    dtype: torch.dtype = torch.float16
 @dataclass
 class JudgeGenerationConfig:
     judge_name: str
@@ -91,7 +94,7 @@ class Experiment:
     dataset: aggregated_dataset_loader
     model_generation_config: ModelGenerationConfig
     judge_generation_config: JudgeGenerationConfig
-    datapoints: list[DataPoint] = []  # List of indices of datapoints to use from the dataset
+    datapoints: list[DataPoint] = field(default_factory=list)  # List of indices of datapoints to use from the dataset
     seed: int = 42
     activation_capturer: Optional[ActivationCapturer] = None
     
@@ -100,14 +103,6 @@ class Experiment:
             data_point = DataPoint(
                 question_id=question_item.id,
                 question_contents=question_item.q,
-                question_contents_tokenized=[],
-                injection_contents=[],
                 question_correct_answer=question_item.a,
-                model_injection=[],
-                model_injection_position=0,
-                model_cot_upto_injection=[],
-                model_cot_after_injection=[],
-                model_response=[],
-                judge_response=[],
             )
             self.datapoints.append(data_point)
