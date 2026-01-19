@@ -80,7 +80,7 @@ class GenerateSimple:
 
         formatted_prompt = self.config.question_prompt_template(datapoint.question_contents)
         
-        input_ids = self.tokenizer.encode(formatted_prompt, return_tensors="pt").input_ids.to(self.device)
+        input_ids = self.tokenizer.encode(formatted_prompt, return_tensors="pt").to(self.device)
         datapoint.question_formatted_contents_tokenized = [t.replace('Ġ', ' ').replace('Ċ', '\n') for t in self.tokenizer.convert_ids_to_tokens(input_ids, skip_special_tokens=True)]
 
         # we need a_n-1 for the context, but the a_n is used to generate the first token, so we include it's activations in `upto_injection_activations`
@@ -149,7 +149,7 @@ class GenerateSimple:
         if len(tokens_upto_injection) <= self.experiment.model_generation_config.sampling_params.max_new_tokens and not self.experiment.model_generation_config.global_stop_fn(tokens_upto_injection): # we do need to inject, this is what broke the loop
 
             inject_text = self.experiment.model_generation_config.get_injection_fn(tokens_upto_injection)
-            inject_tokens = self.tokenizer.encode(inject_text, return_tensors="pt").input_ids.to(self.device)
+            inject_tokens = self.tokenizer.encode(inject_text, return_tensors="pt").to(self.device)
             datapoint.injection_tokenized = [t.replace('Ġ', ' ').replace('Ċ', '\n') for t in self.tokenizer.convert_ids_to_tokens(inject_tokens, skip_special_tokens=True)]
 
             
