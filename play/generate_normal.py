@@ -50,7 +50,7 @@ class GenerateSimple:
         
         print("Model unloaded and memory cleared.")
 
-    def run(self):
+    def generate(self):
         """
         Main execution loop. Iterates over all datapoints in the experiment.
         """

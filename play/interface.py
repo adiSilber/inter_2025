@@ -99,10 +99,12 @@ class Experiment:
     activation_capturer: Optional[ActivationCapturer] = None
     
     def populate_datapoints(self):
-        for question_item in self.dataset:
-            data_point = DataPoint(
-                question_id=question_item.id,
-                question_contents=question_item.q,
-                question_correct_answer=question_item.a,
-            )
-            self.datapoints.append(data_point)
+        for batch in self.dataset:
+            # Dataset iterator returns lists of question_items
+            for question_item in batch:
+                data_point = DataPoint(
+                    question_id=question_item.question_id,
+                    question_contents=question_item.q,
+                    question_correct_answer=question_item.a,
+                )
+                self.datapoints.append(data_point)
