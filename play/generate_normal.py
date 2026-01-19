@@ -23,7 +23,7 @@ class GenerateSimple:
         # Load Model
         self.model = AutoModelForCausalLM.from_pretrained(
             self.config.model_path, 
-            torch_dtype=self.config.dtype,
+            dtype=self.config.dtype,
             device_map="auto" if self.device == "cuda" else None,
             trust_remote_code=True
         )

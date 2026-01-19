@@ -21,9 +21,9 @@ def run_judge_validation(experiment: Experiment):
     # Load model with vLLM for efficient inference
     llm = LLM(
         model=str(judge_config.judge_model_path),
-        dtype="float16",
+        dtype=judge_config.dtype,
         trust_remote_code=True,
-        gpu_memory_utilization=0.9,
+        gpu_memory_utilization=0.3,
         skip_tokenizer_init=False,
         max_model_len=4096,
         enable_prefix_caching=True

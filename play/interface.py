@@ -88,6 +88,8 @@ class JudgeGenerationConfig:
     judge_model_path: str
     judge_prompt: Callable[[str, str, str], str]
     sampling_params: SamplingParams
+    dtype: torch.dtype = torch.float16
+
 
 @dataclass
 class Experiment:
