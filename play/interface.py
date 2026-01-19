@@ -83,7 +83,7 @@ class ModelGenerationConfig:
 class JudgeGenerationConfig:
     judge_name: str
     judge_model_path: str
-    judge_prompt: list[str]
+    judge_prompt: Callable[[str, str, str], str]
     sampling_params: SamplingParams
 
 @dataclass
