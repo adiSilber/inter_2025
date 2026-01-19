@@ -198,6 +198,7 @@ class GenerateSimple:
         if len(tokens_upto_injection) < self.experiment.model_generation_config.sampling_params.max_new_tokens and not self.experiment.model_generation_config.global_stop_fn(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection, skip_special_tokens=False)): # we do need to inject, this is what broke the loop
 
             inject_text = self.experiment.model_generation_config.get_injection_fn(tokens_upto_injection)
+            datapoint.injection_text = inject_text
             inject_tokens = self.tokenizer.encode(inject_text, return_tensors="pt").to(self.device)
             inject_tokens_list = inject_tokens[0].tolist()
             datapoint.injection_tokenized = [t.replace('Ġ', ' ').replace('Ċ', '\n') for t in self.tokenizer.convert_ids_to_tokens(inject_tokens_list, skip_special_tokens=True)]
