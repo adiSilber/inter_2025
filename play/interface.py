@@ -19,6 +19,10 @@ class ActivationCapturer(ABC):
         for arr in self.activations.values():
             for i in range(len(arr)):
                 arr[i] = None
+
+    def kill_activations_array_reset_index(self):
+        for key in self.activations:
+            self.activations[key] = []
     @abstractmethod
     def __enter__(self):
         """Register hooks."""
@@ -40,19 +44,31 @@ class SamplingParams:
 @dataclass
 class DataPoint:
     question_id: str
-    question_contents:str
     question_correct_answer: str
-    model_injection: list[str]  # The injection text as a list of tokens
-    model_injection_position: int # The index of the first token of the injection in the response
-    model_cot_upto_injection: list[str] # Substring of model_response up to the injection point
-    model_cot_after_injection: list[str]
-    model_response: list[str] # Full text of the model's response
-    judge_response: list[str] # Full text of the judge model's response
+    question_contents:str
+    question_formatted_contents_tokenized: list[str]
+    
+
+    injection:str
+    injection_tokenized: list[str]  # The injection text as a list of tokens
+
+
+    upto_injection_tokens: list[str] # Substring of model_response up to the injection point
+    after_injection_tokens: list[str]
+
+
+    judge_response: list[str]
     judge_decision: bool
+
     aha_moment_first_tokens: list[int]# The index of the first token of the aha moment in the response
     aha_moment_last_tokens: list[int]# The index of the last token of the aha moment in the response
     should_capture_activations: bool = False
-    activations: list[dict] = None  # Optional field to store activations
+
+
+    activations_question: Optional[Dict[str, List[torch.Tensor]]] = None
+    activations_upto_injection: Optional[Dict[str, List[torch.Tensor]]] = None
+    activations_injection: Optional[Dict[str, List[torch.Tensor]]] = None
+    activations_after_injection: Optional[Dict[str, List[torch.Tensor]]] = None
 
 @dataclass
 class ModelGenerationConfig:
@@ -84,6 +100,8 @@ class Experiment:
             data_point = DataPoint(
                 question_id=question_item.id,
                 question_contents=question_item.q,
+                question_contents_tokenized=[],
+                injection_contents=[],
                 question_correct_answer=question_item.a,
                 model_injection=[],
                 model_injection_position=0,

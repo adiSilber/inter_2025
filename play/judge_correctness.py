@@ -29,11 +29,11 @@ def run_judge_validation(experiment: Experiment):
         enable_prefix_caching=True
     )
     
-    # Build judge prompts - handle both string and list formats
+    # Build judge prompts
     texts = []
     for dp in datapoints:
-        question = ''.join(dp.question_contents) if isinstance(dp.question_contents, list) else dp.question_contents
-        correct_answer = ''.join(dp.question_correct_answer) if isinstance(dp.question_correct_answer, list) else dp.question_correct_answer
+        question = dp.question_contents
+        correct_answer = dp.question_correct_answer
         model_response = ''.join(dp.model_response) if isinstance(dp.model_response, list) else dp.model_response
         
         if isinstance(judge_prompt_template, list):
