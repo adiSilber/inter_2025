@@ -80,7 +80,12 @@ class GenerateSimple:
 
         # save activations for question (prefill)
         if should_capture:
-            datapoint.activations_question = capturer.captured_activations() # as is, full list
+            # Create a deep copy of the activations structure and move to CPU/detach
+            captured = capturer.captured_activations()
+            datapoint.activations_question = {
+                k: [t.detach().cpu() if t is not None else None for t in v] 
+                for k, v in captured.items()
+            }
             capturer.kill_activations_array_reset_index()
 
         #alias
@@ -112,7 +117,11 @@ class GenerateSimple:
                     next_input_id = next_token
         if should_capture:
             # capture all activations upto injection or end
-            datapoint.activations_upto_injection = capturer.captured_activations() # as is, full list
+            captured = capturer.captured_activations()
+            datapoint.activations_upto_injection = {
+                k: [t.detach().cpu() if t is not None else None for t in v] 
+                for k, v in captured.items()
+            }
             capturer.kill_activations_array_reset_index()
         
         datapoint.upto_injection_tokens = [t.replace('Ġ', ' ').replace('Ċ', '\n') for t in self.tokenizer.convert_ids_to_tokens(
@@ -138,7 +147,11 @@ class GenerateSimple:
             past_key_values = outputs.past_key_values
 
             if should_capture:
-                datapoint.activations_injection = capturer.captured_activations()
+                captured = capturer.captured_activations()
+                datapoint.activations_injection = {
+                    k: [t.detach().cpu() if t is not None else None for t in v] 
+                    for k, v in captured.items()
+                }
                 capturer.kill_activations_array_reset_index()
 
 
@@ -162,9 +175,14 @@ class GenerateSimple:
                         tokens_after_injection.append(next_token.item())
                         
                         next_input_id = next_token
-                if should_capture:
-                    datapoint.activations_after_injection = capturer.captured_activations() # as is, full list
-                    capturer.kill_activations_array_reset_index()
+            if should_capture:
+                captured = capturer.captured_activations()
+                datapoint.activations_after_injection = {
+                    k: [t.detach().cpu() if t is not None else None for t in v] 
+                    for k, v in captured.items()
+                }
+                capturer.kill_activations_array_reset_index()
+
 
             
             datapoint.after_injection_tokens = [t.replace('Ġ', ' ').replace('Ċ', '\n') for t in self.tokenizer.convert_ids_to_tokens(
