@@ -24,20 +24,20 @@ class dataset_loader:
         self.seed = seed
         self.data = []
         self.index = 0
+        self.loaded = False
 
-    def __call__(self, base_path: str, seed: int = -1) -> None:
-        self.base_path = base_path
-        self.seed = seed
-        self.data = []
-        self.index = 0
-        self.load_data()
+    def load_data(self) -> None:
+        if self.loaded:
+            return
         if self.seed != -1:
             prev = random.getstate()
             random.seed(self.seed)
+            self._load_data()
             random.shuffle(self.data)
             random.setstate(prev)
+        self.loaded = True
 
-    def load_data(self):
+    def _load_data(self):
         raise NotImplementedError("load_data method must be implemented by subclasses")
 
     def __iter__(self):
@@ -63,7 +63,7 @@ class dataset_loader:
         return len(self.data)
 
 class AI2ARCLoader(dataset_loader):
-    def load_data(self):
+    def _load_data(self):
         # Try ARC-Challenge first
         path = os.path.join(self.base_path, "ai2_arc", "ARC-Challenge", "test-00000-of-00001.parquet")
         if not os.path.exists(path):
@@ -81,7 +81,6 @@ class AI2ARCLoader(dataset_loader):
                 full_q = f"{q}\n{formatted_choices}"
                 
                 self.data.append(question_item(
-                    id=row['id'],
                     q=full_q,
                     a=row['answerKey'],
                     question_id=str(row['id']),
@@ -89,13 +88,12 @@ class AI2ARCLoader(dataset_loader):
                 ))
 
 class AIMELoader(dataset_loader):
-    def load_data(self):
+    def _load_data(self):
         path = os.path.join(self.base_path, "AIME_1983_2024", "AIME_Dataset_1983_2024.csv")
         if os.path.exists(path):
             df = pd.read_csv(path)
             for _, row in df.iterrows():
                 self.data.append(question_item(
-                    id=str(row['ID']),
                     q=row['Question'],
                     a=str(row['Answer']),
                     question_id=str(row['ID']),
@@ -107,14 +105,13 @@ class AIMELoader(dataset_loader):
                 ))
 
 class MATH500Loader(dataset_loader):
-    def load_data(self):
+    def _load_data(self):
         path = os.path.join(self.base_path, "MATH-500", "test.jsonl")
         if os.path.exists(path):
             with open(path, 'r') as f:
                 for line in f:
                     item = json.loads(line)
                     self.data.append(question_item(
-                        id=item['unique_id'],
                         q=item['problem'],
                         a=item['solution'],
                         question_id=item['unique_id'],
@@ -127,13 +124,12 @@ class MATH500Loader(dataset_loader):
                     ))
 
 class HumanEvalLoader(dataset_loader):
-    def load_data(self):
+    def _load_data(self):
         path = os.path.join(self.base_path, "openai_humaneval", "openai_humaneval", "test-00000-of-00001.parquet")
         if os.path.exists(path):
             df = pd.read_parquet(path)
             for _, row in df.iterrows():
                 self.data.append(question_item(
-                    id=row['task_id'],
                     q=row['prompt'],
                     a=row['canonical_solution'],
                     question_id=row['task_id'],
@@ -145,7 +141,7 @@ class HumanEvalLoader(dataset_loader):
                 ))
 
 class GPQALoader(dataset_loader):
-    def load_data(self):
+    def _load_data(self):
         try:
             from datasets import load_dataset
             # Try to use local cache if it exists
@@ -157,7 +153,6 @@ class GPQALoader(dataset_loader):
             ds = load_dataset("Idavidrein/gpqa", "gpqa_diamond", split="train", cache_dir=cache_dir)
             for idx, row in enumerate(ds):
                 self.data.append(question_item(
-                    id=f"gpqa_{idx}",
                     q=row['Question'],
                     a=row['Correct Answer'],
                     question_id=str(row['Record ID']),
@@ -177,18 +172,27 @@ class aggregate_shuffle_strategy:
     ROUND_ROBIN = 2
     
 class aggregated_dataset_loader:
-    def __init__(self, datasets: list[dataset_loader], seed = -1, strategy : aggregate_shuffle_strategy = aggregate_shuffle_strategy.SEQUENTIAL) -> None:
+    def __init__(self, datasets: list[dataset_loader], seed = -1, strategy : aggregate_shuffle_strategy = aggregate_shuffle_strategy.SEQUENTIAL, base_path=None) -> None:
         """
         dataset_loaders: list of dataset_loader objects
         """
         self.seed = seed
         self.strategy = strategy
-        self.loaders = datasets
+        self.loaders = []
+        if base_path is None:
+            base_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "datasets", "datasets")
 
-        datasets_folder_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "datasets")
-        for ds in self.loaders:
-            assert isinstance(ds, dataset_loader)
-            ds(datasets_folder_path, seed)
+        # Instantiate the loader classes
+        for ds in datasets:
+            if issubclass(ds, dataset_loader):
+                loader = ds(base_path, seed)
+                loader._load_data()
+                self.loaders.append(loader)
+            elif isinstance(ds, dataset_loader):
+                ds._load_data()
+                self.loaders.append(ds)
+            else:
+                raise ValueError("datasets must be a list of dataset_loader classes or instances")
         
         if strategy == aggregate_shuffle_strategy.RANDOM:
             pass
