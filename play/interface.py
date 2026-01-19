@@ -40,8 +40,8 @@ class SamplingParams:
 @dataclass
 class DataPoint:
     question_id: str
-    question_contents: list[str]
-    question_correct_answer: list[str]
+    question_contents:str
+    question_correct_answer: str
     model_injection: list[str]  # The injection text as a list of tokens
     model_injection_position: int # The index of the first token of the injection in the response
     model_cot_upto_injection: list[str] # Substring of model_response up to the injection point
