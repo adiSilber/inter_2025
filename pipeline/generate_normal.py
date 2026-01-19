@@ -2,7 +2,7 @@ import torch
 import contextlib
 from typing import List, Optional
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from play.interface import Experiment, ModelGenerationConfig, DataPoint, ActivationCapturer
+from pipeline.interface import Experiment, ModelGenerationConfig, DataPoint, ActivationCapturer
 
 # Assuming the previous dataclasses and Experiment class are defined above
 

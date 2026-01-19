@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 import torch
 
 if TYPE_CHECKING:
-    from play.dataset_loaders import aggregated_dataset_loader
+    from pipeline.dataset_loaders import aggregated_dataset_loader
 
 class ActivationCapturer(ABC):
     def __init__(self):
