@@ -102,6 +102,7 @@ download_with_python() {
     local artifact_id="$1"
     local target_dir="$2"
     local skip_patterns="$3"
+    local hf_token="${HF_TOKEN:-}"
     
     python3 << EOF
 import sys
@@ -144,17 +145,19 @@ def verify_file_hash(filepath, expected_hash):
 artifact_id = "${artifact_id}"
 target_dir = "${target_dir}"
 skip_patterns = "${skip_patterns}"
+hf_token = "${hf_token}" or None
 
 print(f"Downloading {artifact_id}...")
+print(f"Token available: {hf_token is not None and len(hf_token) > 0}")
 
 try:
     # Try to list files first to determine if it's a model or dataset
     try:
-        files = list_repo_files(artifact_id, repo_type="model")
+        files = list_repo_files(artifact_id, repo_type="model", token=hf_token)
         repo_type = "model"
     except:
         try:
-            files = list_repo_files(artifact_id, repo_type="dataset")
+            files = list_repo_files(artifact_id, repo_type="dataset", token=hf_token)
             repo_type = "dataset"
         except:
             print(f"Error: Could not access {artifact_id}")
@@ -177,10 +180,9 @@ try:
         artifact_id,
         repo_type=repo_type,
         local_dir=local_dir,
-        local_dir_use_symlinks=False,
-        resume_download=True,
         allow_patterns=None if not skip_patterns else None,  # Use ignore_patterns instead
-        ignore_patterns=[p.strip() for p in skip_patterns.split('|')] if skip_patterns else None
+        ignore_patterns=[p.strip() for p in skip_patterns.split('|')] if skip_patterns else None,
+        token=hf_token
     )
     
     print(f"✓ Successfully downloaded to {downloaded_path}")
@@ -210,6 +212,12 @@ download_with_git() {
     
     echo "Cloning https://huggingface.co/$artifact_id..."
     
+    # Build clone URL with token if available
+    local clone_url="https://huggingface.co/$artifact_id"
+    if [ -n "${HF_TOKEN:-}" ]; then
+        clone_url="https://user:${HF_TOKEN}@huggingface.co/$artifact_id"
+    fi
+    
     # Check if directory exists and has .git
     if [ -d "$repo_path/.git" ]; then
         echo "Repository already exists, pulling latest changes..."
@@ -217,7 +225,7 @@ download_with_git() {
         git pull
     else
         # Clone the repository
-        GIT_LFS_SKIP_SMUDGE=1 git clone "https://huggingface.co/$artifact_id" "$repo_path"
+        GIT_LFS_SKIP_SMUDGE=1 git clone "$clone_url" "$repo_path"
         cd "$repo_path"
     fi
     

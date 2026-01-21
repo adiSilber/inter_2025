@@ -7,3 +7,5 @@ datasets/datasets
 .DS_Store
 logs
 *.pkl
+evya.sh
+.cache
