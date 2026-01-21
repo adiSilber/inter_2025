@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 import torch
 
 if TYPE_CHECKING:
-    from pipeline.dataset_loaders import aggregated_dataset_loader
+    from dataset_loaders import aggregated_dataset_loader
 
 class ActivationCapturer(ABC):
     def __init__(self):
@@ -64,6 +64,8 @@ class DataPoint:
 
     aha_moment_first_tokens: list[int] = field(default_factory=list)# The index of the first token of the aha moment in the response
     aha_moment_last_tokens: list[int] = field(default_factory=list)# The index of the last token of the aha moment in the response
+    
+    
     should_capture_activations: bool = False
 
 

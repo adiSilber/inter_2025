@@ -31,7 +31,7 @@ import torch
 from typing import List, Callable, Optional
 from vllm import LLM, SamplingParams
 
-from pipeline.utils import extract_final_answer, extract_judge_decision
+from utils import extract_final_answer, extract_judge_decision
 
 # ============================================================================
 # Configuration

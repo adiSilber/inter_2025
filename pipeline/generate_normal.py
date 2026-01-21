@@ -2,7 +2,7 @@ import torch
 import contextlib
 from typing import List, Optional
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from pipeline.interface import Experiment, ModelGenerationConfig, DataPoint, ActivationCapturer
+from interface import Experiment, ModelGenerationConfig, DataPoint, ActivationCapturer
 
 # Assuming the previous dataclasses and Experiment class are defined above
 
@@ -115,6 +115,7 @@ class GenerateSimple:
         """
         Generates response for a single datapoint token-by-token with injection logic.
         """
+        print(f"  Starting generation for datapoint: {datapoint.question_contents[:50]}...")
 
         # Set up activation capturing context
         capturer = self.experiment.activation_capturer
@@ -131,6 +132,7 @@ class GenerateSimple:
         input_ids = self.tokenizer.encode(formatted_prompt, return_tensors="pt").to(self.device)
         ids_list = input_ids[0].tolist()
         datapoint.question_formatted_contents_tokenized = [t.replace('Ġ', ' ').replace('Ċ', '\n') for t in self.tokenizer.convert_ids_to_tokens(ids_list, skip_special_tokens=True)]
+        print(f"    Prompt tokenized: {len(ids_list)} tokens")
 
         # we need a_n-1 for the context, but the a_n is used to generate the first token, so we include it's activations in `upto_injection_activations`
         context_ids = input_ids[:, :-1] # All but last token
@@ -143,6 +145,7 @@ class GenerateSimple:
         with ctx_manager, torch.no_grad():
             outputs = self._safe_model_call(input_ids=context_ids, use_cache=True)
             past_key_values = outputs.past_key_values
+        print(f"    Prefill complete, KV cache initialized")
 
         # save activations for question (prefill)
         if should_capture:
@@ -178,6 +181,9 @@ class GenerateSimple:
                     next_token = self._sample_token(outputs.logits[:, -1, :])
                     # save token id
                     tokens_upto_injection.append(next_token.item())
+                    
+                    if len(tokens_upto_injection) % 20 == 0:
+                        print(f"    Generated {len(tokens_upto_injection)} tokens so far...")
 
                     #update next token input
                     next_input_id = next_token.unsqueeze(-1)
@@ -194,14 +200,17 @@ class GenerateSimple:
             tokens_upto_injection, 
             skip_special_tokens=True
         )]
+        print(f"    Generated {len(tokens_upto_injection)} tokens before injection point")
 
         if len(tokens_upto_injection) < self.experiment.model_generation_config.sampling_params.max_new_tokens and not self.experiment.model_generation_config.global_stop_fn(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection, skip_special_tokens=False)): # we do need to inject, this is what broke the loop
 
             inject_text = self.experiment.model_generation_config.get_injection_fn(tokens_upto_injection)
             datapoint.injection_text = inject_text
+            print(f"    Injecting text: '{inject_text[:100]}...'")
             inject_tokens = self.tokenizer.encode(inject_text, return_tensors="pt").to(self.device)
             inject_tokens_list = inject_tokens[0].tolist()
             datapoint.injection_tokenized = [t.replace('Ġ', ' ').replace('Ċ', '\n') for t in self.tokenizer.convert_ids_to_tokens(inject_tokens_list, skip_special_tokens=True)]
+            print(f"    Injection tokenized: {len(inject_tokens_list)} tokens")
 
             
             context_ids = inject_tokens[:, :-1] # All but last token
@@ -213,6 +222,7 @@ class GenerateSimple:
                             use_cache=True
                         )
             past_key_values = outputs.past_key_values
+            print(f"    Injection prefill complete")
 
             if should_capture:
                 captured = capturer.captured_activations()
@@ -240,6 +250,9 @@ class GenerateSimple:
                         next_token = self._sample_token(outputs.logits[:, -1, :])
 
                         tokens_after_injection.append(next_token.item())
+                        
+                        if len(tokens_after_injection) % 20 == 0:
+                            print(f"    Generated {len(tokens_after_injection)} tokens after injection...")
 
                         next_input_id = next_token.unsqueeze(-1)
             if should_capture:
@@ -256,6 +269,8 @@ class GenerateSimple:
                 tokens_after_injection, 
                 skip_special_tokens=True
             )]
+            print(f"    Generated {len(tokens_after_injection)} tokens after injection")
+            print(f"    Total tokens generated: {len(tokens_upto_injection) + len(tokens_after_injection)}")
 
 
     def _sample_token(
