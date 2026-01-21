@@ -83,7 +83,7 @@ class AI2ARCLoader(dataset_loader):
                 self.data.append(question_item(
                     q=full_q,
                     a=row['answerKey'],
-                    question_id=str(row['id']),
+                    question_id="aiarc"+str(row['id']),
                     misc_specific_misc={'id': row['id']}
                 ))
 
@@ -98,7 +98,7 @@ class AIMELoader(dataset_loader):
                     a=str(row['Answer']),
                     question_id=str(row['ID']),
                     misc_specific_misc={
-                        'ID': row['ID'],
+                        'ID': "aim"+row['ID'],
                         'Year': row['Year'],
                         'Problem Number': row['Problem Number']
                     }
@@ -114,7 +114,7 @@ class MATH500Loader(dataset_loader):
                     self.data.append(question_item(
                         q=item['problem'],
                         a=item['solution'],
-                        question_id=item['unique_id'],
+                        question_id="math500"+item['unique_id'],
                         misc_specific_misc={
                             'answer': item['answer'],
                             'subject': item['subject'],
@@ -132,7 +132,7 @@ class HumanEvalLoader(dataset_loader):
                 self.data.append(question_item(
                     q=row['prompt'],
                     a=row['canonical_solution'],
-                    question_id=row['task_id'],
+                    question_id="humaneval"+row['task_id'],
                     misc_specific_misc={
                         'task_id': row['task_id'],
                         'test': row['test'],
@@ -155,7 +155,7 @@ class GPQALoader(dataset_loader):
                 self.data.append(question_item(
                     q=row['Question'],
                     a=row['Correct Answer'],
-                    question_id=str(row['Record ID']),
+                    question_id="gpqa"+str(row['Record ID']),
                     misc_specific_misc={
                         'Record ID': row['Record ID'],
                         'Incorrect Answer 1': row['Incorrect Answer 1'],
