@@ -166,6 +166,20 @@ class GPQALoader(dataset_loader):
         except Exception as e:
             print(f"Failed to load GPQA: {e}")
 
+class SimpleDatasetLoader(dataset_loader):
+    def _load_data(self):
+        path = os.path.join(self.base_path, "simple", "simple.json")
+        if os.path.exists(path):
+            with open(path, 'r') as f:
+                content = json.load(f)
+                for idx, item in enumerate(content.get('data', [])):
+                    self.data.append(question_item(
+                        q=item['question'],
+                        a=item['answer'],
+                        question_id=f"simple_{idx}",
+                        misc_specific_misc={}
+                    ))
+
 class aggregate_shuffle_strategy:
     SEQUENTIAL = 0
     RANDOM = 1
