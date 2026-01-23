@@ -217,6 +217,16 @@ class aggregated_dataset_loader:
 
     def __iter__(self):
         return self
+    
+    def reset_iterator(self):
+        for loader in self.loaders:
+            loader.__iter__() # reset index
+        if self.strategy == aggregate_shuffle_strategy.RANDOM:
+            pass
+        elif self.strategy == aggregate_shuffle_strategy.ROUND_ROBIN:
+            self.rr_index = 0
+        else:
+            self.current_loader_index = 0
 
     def __next__(self, k:int=1) -> List[question_item]:
         """
