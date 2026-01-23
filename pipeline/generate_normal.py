@@ -2,7 +2,7 @@ import torch
 import contextlib
 from typing import List, Optional
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from interface import Experiment, ModelGenerationConfig, DataPoint, ActivationCapturer
+from pipeline.interface import Experiment, ModelGenerationConfig, DataPoint, ActivationCapturer
 
 # Assuming the previous dataclasses and Experiment class are defined above
 
@@ -207,7 +207,7 @@ class GenerateSimple:
             inject_text = self.experiment.model_generation_config.get_injection_fn(tokens_upto_injection)
             datapoint.injection_text = inject_text
             print(f"    Injecting text: '{inject_text[:100]}...'")
-            inject_tokens = self.tokenizer.encode(inject_text, return_tensors="pt").to(self.device)
+            inject_tokens = self.tokenizer.encode(inject_text, return_tensors="pt",add_special_tokens=False).to(self.device)
             inject_tokens_list = inject_tokens[0].tolist()
             datapoint.injection_tokenized = [t.replace('Ġ', ' ').replace('Ċ', '\n') for t in self.tokenizer.convert_ids_to_tokens(inject_tokens_list, skip_special_tokens=True)]
             print(f"    Injection tokenized: {len(inject_tokens_list)} tokens")
