@@ -102,7 +102,8 @@ class Experiment:
     seed: int = 42
     activation_capturer: Optional[ActivationCapturer] = None
     
-    def populate_datapoints(self):
+    def populate_datapoints(self,num:Optional[int]=None):
+        count = 0
         for batch in self.dataset:
             # Dataset iterator returns lists of question_items
             for question_item in batch:
@@ -112,3 +113,9 @@ class Experiment:
                     question_correct_answer=question_item.a,
                 )
                 self.datapoints.append(data_point)
+                count += 1
+                if num is not None and count >= num:
+                    break
+            if num is not None and count >= num:
+                break
+        self.dataset.reset_iterator()
