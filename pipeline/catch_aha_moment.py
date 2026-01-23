@@ -1,4 +1,4 @@
-from pipeline.interface import DataPoint, Experiment
+from interface import DataPoint, Experiment
 from tqdm import tqdm
 from typing import List, Tuple
 

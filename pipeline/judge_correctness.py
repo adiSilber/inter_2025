@@ -3,8 +3,8 @@ from typing import Iterable
 from datetime import datetime
 from vllm import LLM, SamplingParams
 
-from pipeline.interface import DataPoint, Experiment
-from pipeline.utils import extract_judge_decision
+from interface import DataPoint, Experiment
+from utils import extract_judge_decision
 
 
 
