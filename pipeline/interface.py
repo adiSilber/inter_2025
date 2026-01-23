@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 import os
-from typing import List, Optional, Dict, Any, TYPE_CHECKING
+from typing import List, Optional, Dict, Any, TYPE_CHECKING, Callable
 from abc import ABC, abstractmethod
 import torch
 import dill
@@ -9,6 +9,19 @@ from pathvalidate import sanitize_filename
 
 if TYPE_CHECKING:
     from dataset_loaders import aggregated_dataset_loader
+
+def get_unique_path(path: str) -> str:
+    """Returns a unique path by appending _v1, _v2, etc., if the file already exists."""
+    if not os.path.exists(path):
+        return path
+    
+    base, ext = os.path.splitext(path)
+    counter = 1
+    while True:
+        new_path = f"{base}_v{counter}{ext}"
+        if not os.path.exists(new_path):
+            return new_path
+        counter += 1
 
 class ActivationCapturer(ABC):
     def __init__(self):
@@ -150,6 +163,9 @@ class Experiment:
         if filename is None:
             filename = f"{self.name.replace(' ', '_')}_experiment.pkl"
         filename = sanitize_filename(filename)
+
+        save_path = get_unique_path(os.path.join(save_dir, filename))
+        
         temp_datapoints = self.datapoints 
 
         
@@ -157,7 +173,7 @@ class Experiment:
             self.datapoints = []
 
         try:
-            with open(os.path.join(save_dir, filename), "wb") as f:
+            with open(save_path, "wb") as f:
                 dill.dump(self, f)
         finally:
             if without_datapoints:
@@ -172,9 +188,10 @@ class Experiment:
             filename = f"{self.name.replace(' ', '_')}_datapoints__{start_index+offset_relative_to_experiment}_{end_index+offset_relative_to_experiment}.pkl"
         filename = sanitize_filename(filename)
 
+        save_path = get_unique_path(os.path.join(save_dir, filename))
 
         try:
-            with open(os.path.join(save_dir, filename), "wb") as f:
+            with open(save_path, "wb") as f:
                 dill.dump((self.datapoints[start_index:end_index],start_index+offset_relative_to_experiment,end_index+offset_relative_to_experiment), f)
         finally:
            pass
