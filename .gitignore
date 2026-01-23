@@ -12,3 +12,4 @@ evya.sh
 # lm-evaluation-harness/
 comm
 .artifacts_old
+.cache

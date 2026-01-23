@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 import os
-from typing import List, Optional, Dict, Any, TYPE_CHECKING, Callable
+from typing import List, Optional, Dict, Any, TYPE_CHECKING
 from abc import ABC, abstractmethod
 import torch
 import dill

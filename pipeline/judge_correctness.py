@@ -36,7 +36,7 @@ def run_judge_validation(experiment: Experiment):
         correct_answer = dp.question_correct_answer
         model_response = ''.join(dp.model_response) if isinstance(dp.model_response, list) else dp.model_response
         
-        prompt = judge_prompt_template(question, correct_answer, model_response)
+        prompt = judge_prompt_template.format(question, model_response, correct_answer)
         texts.append(prompt)
 
     # Convert SamplingParams dataclass to vLLM SamplingParams
