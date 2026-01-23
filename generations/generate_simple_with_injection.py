@@ -194,7 +194,7 @@ def create_generation_config():
 
     def judge_prompt_fn(question, correct_answer, generated_text):
         return (
-            f'｜begin▁of▁sentence｜>'
+            f'<｜begin▁of▁sentence｜>'
             f'You are an expert math problem evaluator. Compare the model\'s answer with the correct answer.<｜User｜>'
             f'Question: {question}\n\n'
             f'Correct Answer: {correct_answer}\n\n'
@@ -311,9 +311,11 @@ def run_generation():
             # subset slice indices (inclusive/exclusive)
             start_sub = saved_batches * NUM_OBJECTS_IN_PICKLE
             end_sub_excl = min((saved_batches + 1) * NUM_OBJECTS_IN_PICKLE, total_subset)
-            
+            print(f"  Saving datapoints {start_sub} to {end_sub_excl} to disk...")
             experiment.store_datapoints_only(output_dir, start_index=start_sub, end_index=end_sub_excl, offset_relative_to_experiment=subset_global_offset)
-
+            print("  Clearing activations from memory...")
+            experiment.clear_activations(start_sub, end_sub_excl)
+            print(f" Cleared activations for datapoints {start_sub} to {end_sub_excl}")
             saved_batches += 1
 
     print("   Generation complete!")

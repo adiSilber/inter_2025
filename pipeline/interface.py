@@ -157,6 +157,12 @@ class Experiment:
                 dill.dump((self.datapoints[start_index:end_index],start_index+offset_relative_to_experiment,end_index+offset_relative_to_experiment), f)
         finally:
            pass
+    def clear_activations(self,start_index,end_index):
+        for datapoint in self.datapoints[start_index:end_index]:
+            datapoint.activations_question = None
+            datapoint.activations_upto_injection = None
+            datapoint.activations_injection = None
+            datapoint.activations_after_injection = None
     def load_datapoints(self, filepath: str):
         with open(filepath, "rb") as f:
             datapoints,start,end = dill.load(f)
