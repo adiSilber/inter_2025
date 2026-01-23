@@ -12,7 +12,7 @@ bitsandbytes
 # certifi
 # charset-normalizer
 datasets
-dill
+pickle
 # diskcache
 # faiss-cpu
 # filelock

@@ -9,3 +9,6 @@ logs
 *.pkl
 evya.sh
 .cache
+# lm-evaluation-harness/
+comm
+.artifacts_old

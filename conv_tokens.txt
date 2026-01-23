@@ -1,4 +1,0 @@
-<|begin_of_sentence|><|User|> {user_message}<|Assistant|><think>
-{reasoning_content}
-</think>
-{actual_response}<|end_of_sentence|>
