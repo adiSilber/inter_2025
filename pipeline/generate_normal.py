@@ -128,7 +128,7 @@ class GenerateSimple:
 
 
 
-        formatted_prompt = self.config.question_prompt_template(datapoint.question_contents)
+        formatted_prompt = self.config.question_prompt_template.format(datapoint.question_contents)
         
         input_ids = self.tokenizer.encode(formatted_prompt, return_tensors="pt").to(self.device)
         ids_list = input_ids[0].tolist()
@@ -167,8 +167,8 @@ class GenerateSimple:
         with ctx_manager, torch.no_grad():
             while (
                 len(tokens_upto_injection) < self.experiment.model_generation_config.sampling_params.max_new_tokens and # max tokens
-                    not self.experiment.model_generation_config.should_stop_fn(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection, skip_special_tokens=False)) and # stop to inject (token strings)
-                    not self.experiment.model_generation_config.global_stop_fn(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection, skip_special_tokens=False)) ): # global stop (token strings)
+                    not self.experiment.model_generation_config.should_stop.should_stop(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection, skip_special_tokens=False)) and # stop to inject (token strings)
+                    not self.experiment.model_generation_config.global_stop.should_stop(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection, skip_special_tokens=False)) ): # global stop (token strings)
                     # generate next token
                     outputs = self._safe_model_call(
                         input_ids=next_input_id,
@@ -203,9 +203,9 @@ class GenerateSimple:
         )]
         print(f"    Generated {len(tokens_upto_injection)} tokens before injection point")
 
-        if len(tokens_upto_injection) < self.experiment.model_generation_config.sampling_params.max_new_tokens and not self.experiment.model_generation_config.global_stop_fn(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection, skip_special_tokens=False)): # we do need to inject, this is what broke the loop
+        if len(tokens_upto_injection) < self.experiment.model_generation_config.sampling_params.max_new_tokens and not self.experiment.model_generation_config.global_stop.should_stop(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection, skip_special_tokens=False)): # we do need to inject, this is what broke the loop
 
-            inject_text = self.experiment.model_generation_config.get_injection_fn(tokens_upto_injection)
+            inject_text = self.experiment.model_generation_config.get_injection.get_injection(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection, skip_special_tokens=False))
             datapoint.injection_text = inject_text
             print(f"    Injecting text: '{inject_text[:100]}...'")
             inject_tokens = self.tokenizer.encode(inject_text, return_tensors="pt",add_special_tokens=False).to(self.device)
@@ -239,7 +239,7 @@ class GenerateSimple:
             next_input_id  = trigger_token
             with ctx_manager, torch.no_grad():
                 while ( len(tokens_upto_injection+tokens_after_injection) < self.experiment.model_generation_config.sampling_params.max_new_tokens and # max tokens
-                    not self.experiment.model_generation_config.global_stop_fn(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection + tokens_after_injection, skip_special_tokens=False)) ): # global stop on combined sequence
+                    not self.experiment.model_generation_config.global_stop.should_stop(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection + tokens_after_injection, skip_special_tokens=False)) ): # global stop on combined sequence
                         outputs = self._safe_model_call(
                             input_ids=next_input_id,
                             past_key_values=past_key_values,

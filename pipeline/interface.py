@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 import os
-from typing import Callable, List, Optional, Dict, Any, TYPE_CHECKING
+from typing import List, Optional, Dict, Any, TYPE_CHECKING
 from abc import ABC, abstractmethod
 import torch
 import dill
@@ -46,6 +46,27 @@ class SamplingParams:
     take_dumb_max: bool = True
     max_new_tokens: int = 1000
 
+class ShouldStop(ABC):
+    @abstractmethod
+    def should_stop(self, previous_tokens: Optional[list[str]]=None) -> bool:
+        raise NotImplementedError
+class DontStop(ShouldStop):
+    def should_stop(self, previous_tokens: Optional[list[str]]=None) -> bool:
+        return False
+
+class ModelPromptTemplate(ABC):
+    @abstractmethod
+    def format(self, question: str) -> str:
+        raise NotImplementedError
+class JudgePromptTemplate(ABC):
+    @abstractmethod
+    def format(self, question: str,model_answer:str,correct_answer:str) -> str:
+        raise NotImplementedError
+class Injection(ABC):
+    @abstractmethod
+    def get_injection(self,previous_tokens: Optional[list[str]]=None) -> str:
+        raise NotImplementedError
+
 @dataclass
 class DataPoint:
     question_id: str
@@ -81,17 +102,17 @@ class DataPoint:
 class ModelGenerationConfig:
     model_name: str
     model_path: str
-    get_injection_fn: Callable[[List[str]], str] 
-    global_stop_fn: Callable[[List[str]], bool]
-    question_prompt_template: Callable[[str], str]
+    get_injection: Injection
+    global_stop: ShouldStop
+    question_prompt_template: ModelPromptTemplate
     sampling_params: SamplingParams
-    should_stop_fn: Callable[[List[str]], bool] = lambda:False
+    should_stop: ShouldStop = DontStop()
     dtype: torch.dtype = torch.float16
 @dataclass
 class JudgeGenerationConfig:
     judge_name: str
     judge_model_path: str
-    judge_prompt: Callable[[str, str, str], str]
+    judge_prompt: JudgePromptTemplate
     sampling_params: SamplingParams
     dtype: torch.dtype = torch.float16
 
