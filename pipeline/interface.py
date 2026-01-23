@@ -1,8 +1,11 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
+import os
 from typing import Callable, List, Optional, Dict, Any, TYPE_CHECKING
 from abc import ABC, abstractmethod
 import torch
+import dill
+from pathvalidate import sanitize_filename
 
 if TYPE_CHECKING:
     from dataset_loaders import aggregated_dataset_loader
@@ -95,6 +98,7 @@ class JudgeGenerationConfig:
 
 @dataclass
 class Experiment:
+    name:str
     dataset: aggregated_dataset_loader
     model_generation_config: ModelGenerationConfig
     judge_generation_config: JudgeGenerationConfig
@@ -119,3 +123,50 @@ class Experiment:
             if num is not None and count >= num:
                 break
         self.dataset.reset_iterator()
+    
+    def store(self, save_dir:str,filename: Optional[str]=None, without_datapoints: bool = True):
+        os.makedirs(save_dir, exist_ok=True)
+        if filename is None:
+            filename = f"{self.name.replace(' ', '_')}_experiment.pkl"
+        filename = sanitize_filename(filename)
+        temp_datapoints = self.datapoints 
+
+        
+        if without_datapoints:
+            self.datapoints = []
+
+        try:
+            with open(os.path.join(save_dir, filename), "wb") as f:
+                dill.dump(self, f)
+        finally:
+            if without_datapoints:
+                self.datapoints = temp_datapoints
+            
+
+    def store_datapoints_only(self,save_dir, filename: Optional[str]=None,start_index:int=0,end_index:Optional[int]=None,offset_relative_to_experiment=0):
+        os.makedirs(save_dir, exist_ok=True)
+        if end_index is None:
+            end_index = len(self.datapoints)
+        if filename is None:
+            filename = f"{self.name.replace(' ', '_')}_datapoints__{start_index+offset_relative_to_experiment}_{end_index+offset_relative_to_experiment}.pkl"
+        filename = sanitize_filename(filename)
+
+
+        try:
+            with open(os.path.join(save_dir, filename), "wb") as f:
+                dill.dump((self.datapoints[start_index:end_index],start_index+offset_relative_to_experiment,end_index+offset_relative_to_experiment), f)
+        finally:
+           pass
+    def load_datapoints(self, filepath: str):
+        with open(filepath, "rb") as f:
+            datapoints,start,end = dill.load(f)
+        self.datapoints[start:end] = datapoints
+
+    @classmethod
+    def load(cls, filepath: str) -> Experiment:
+        with open(filepath, "rb") as f:
+            experiment = dill.load(f)
+        return experiment
+    
+
+
