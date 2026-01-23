@@ -21,7 +21,8 @@ class GenerateSimple:
         )
         kwargs = {}
         if experiment.activation_capturer is not None:
-            kwargs['attn_implementation']="eager" # Explicitly use eager to ensure weights can be captured
+            kwargs['attn_implementation'] = "eager"
+            kwargs['output_attentions'] = True # Ensure architecture supports returning weights
             
         # Load Model
         self.model = AutoModelForCausalLM.from_pretrained(

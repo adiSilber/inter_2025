@@ -166,6 +166,9 @@ class Experiment:
     def load_datapoints(self, filepath: str):
         with open(filepath, "rb") as f:
             datapoints,start,end = dill.load(f)
+        # Ensure the list is large enough to handle the slice assignment
+        if len(self.datapoints) < end:
+            self.datapoints.extend([None] * (end - len(self.datapoints)))
         self.datapoints[start:end] = datapoints
 
     @classmethod
