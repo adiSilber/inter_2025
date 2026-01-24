@@ -97,11 +97,14 @@ class DataPoint:
 
 
     judge_response: list[str] = field(default_factory=list)
-    judge_decision: bool = False
+    judge_decision: Optional[bool] = None
+    judge_prompt: list[str] = field(default_factory=list)
 
     aha_moment_first_tokens: list[int] = field(default_factory=list)# The index of the first token of the aha moment in the response
     aha_moment_last_tokens: list[int] = field(default_factory=list)# The index of the last token of the aha moment in the response
     
+    recovery_starting_indices: list[int] = field(default_factory=list) # [start, end] tokens where model starts questioning injection
+    recovery_complete_indices: list[int] = field(default_factory=list) # [start, end] tokens where model fully recovers
     
     should_capture_activations: bool = False
 
