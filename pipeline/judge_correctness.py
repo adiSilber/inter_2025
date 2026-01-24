@@ -66,7 +66,12 @@ class CorrectnessJudge:
         # Take the last occurrence of either 'yes' or 'no'
         all_matches.sort(key=lambda x: x[1])
         return all_matches[-1][0] == 'yes'
-
+    def unload_model(self):
+        """
+        Unloads the model from memory.
+        """
+        del self.model
+        torch.cuda.empty_cache()
     def run(self, batch_size: int = 8, start_index: int = 0, end_index: Optional[int] = None):
         """
         Runs the judge on the experiment's datapoints within the specified range.

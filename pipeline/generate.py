@@ -17,6 +17,8 @@ from math import ceil
 import os
 import sys
 
+from pipeline.judge_correctness import CorrectnessJudge
+
 
 
 sys.stdout.reconfigure(line_buffering=True)
@@ -301,7 +303,6 @@ def run_generation():
     # Save every N datapoints as they complete to avoid waiting until the end
     NUM_OBJECTS_IN_PICKLE = 10
     # `start` is the global index offset in the original full datapoints list (computed above)
-    subset_global_offset = start
 
     saved_batches = 0
     total_subset = len(experiment.datapoints)
@@ -316,8 +317,10 @@ def run_generation():
             # subset slice indices (inclusive/exclusive)
             start_sub = saved_batches * NUM_OBJECTS_IN_PICKLE
             end_sub_excl = min((saved_batches + 1) * NUM_OBJECTS_IN_PICKLE, total_subset)
+
+            
             print(f"  Saving datapoints {start_sub} to {end_sub_excl} to disk...")
-            experiment.store_datapoints_only(output_dir, start_index=start_sub, end_index=end_sub_excl, offset_relative_to_experiment=subset_global_offset)
+            experiment.store_datapoints_only(output_dir, start_index=start_sub, end_index=end_sub_excl, offset_relative_to_experiment=start)
             print("  Clearing activations from memory...")
             experiment.clear_activations(start_sub, end_sub_excl)
             print(f" Cleared activations for datapoints {start_sub} to {end_sub_excl}")
@@ -327,6 +330,15 @@ def run_generation():
     # Unload model to free memory
     generator.unload_model()
     
+    print("\n3. Running judge validation...")
+    judge = CorrectnessJudge(experiment, device='cuda')
+    judge.run(batch_size=8)
+    judge.unload_model()
+
+    print("\n4. Done generatinh judge decisions. datapoints populated")
+
+    print("resaving datapoints with judge decisions...")
+    experiment.store_datapoints_only(output_dir, start_index=0, end_index=len(experiment.datapoints), offset_relative_to_experiment=start,override=True)
     # Verify activations were captured
     print("\n2a. Verifying captured activations...")
     total_activations = 0
@@ -375,6 +387,8 @@ def run_generation():
             else:
                 print(f"      {activation_name}: None")
     
+
+
     # Note: datapoints are saved incrementally during generation.
     print("   Datapoints saved successfully (incremental saves during generation)!")
     
