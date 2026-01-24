@@ -161,13 +161,17 @@ class Experiment:
                 break
         self.dataset.reset_iterator()
     
-    def store(self, save_dir:str,filename: Optional[str]=None, without_datapoints: bool = True):
+    def store(self, save_dir:str,filename: Optional[str]=None, without_datapoints: bool = True,override: bool = False):
         os.makedirs(save_dir, exist_ok=True)
         if filename is None:
             filename = f"{self.name.replace(' ', '_')}_experiment.pkl"
         filename = sanitize_filename(filename)
 
-        save_path = get_unique_path(os.path.join(save_dir, filename))
+        save_path = os.path.join(save_dir, filename)
+        if override:
+            save_path = save_path
+        else:
+            save_path = get_unique_path(save_path)
         
         temp_datapoints = self.datapoints 
 
@@ -183,7 +187,7 @@ class Experiment:
                 self.datapoints = temp_datapoints
             
 
-    def store_datapoints_only(self,save_dir, filename: Optional[str]=None,start_index:int=0,end_index:Optional[int]=None,offset_relative_to_experiment=0):
+    def store_datapoints_only(self,save_dir, filename: Optional[str]=None,start_index:int=0,end_index:Optional[int]=None,offset_relative_to_experiment=0,override: bool = False):
         os.makedirs(save_dir, exist_ok=True)
         if end_index is None:
             end_index = len(self.datapoints)
@@ -191,7 +195,12 @@ class Experiment:
             filename = f"{self.name.replace(' ', '_')}_datapoints__{start_index+offset_relative_to_experiment}_{end_index+offset_relative_to_experiment}.pkl"
         filename = sanitize_filename(filename)
 
-        save_path = get_unique_path(os.path.join(save_dir, filename))
+        save_path = os.path.join(save_dir, filename)
+        if override:
+            save_path = save_path
+        else:
+            save_path = get_unique_path(save_path)
+
 
         try:
             with open(save_path, "wb") as f:
