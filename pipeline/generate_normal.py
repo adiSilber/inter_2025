@@ -201,6 +201,7 @@ class GenerateSimple:
             tokens_upto_injection, 
             skip_special_tokens=True
         )]
+        datapoint.upto_injection_string = self.tokenizer.decode(tokens_upto_injection, skip_special_tokens=True)
 
         print(f"    Generated {len(tokens_upto_injection)} tokens before injection point")
 
@@ -272,6 +273,7 @@ class GenerateSimple:
                 tokens_after_injection, 
                 skip_special_tokens=True
             )]
+            datapoint.after_injection_string = self.tokenizer.decode(tokens_after_injection, skip_special_tokens=True)
             print(f"    Generated {len(tokens_after_injection)} tokens after injection")
             print(f"    Total tokens generated: {len(tokens_upto_injection) + len(tokens_after_injection)}")
 
