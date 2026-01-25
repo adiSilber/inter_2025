@@ -6,6 +6,7 @@ from typing import List, Optional
 import re
 
 class CorrectnessJudge:
+    valid_answers = ['correct', 'incorrect', 'no_answer', 'irrelevant'] 
     def __init__(self, experiment: Experiment, device: str = "cuda"):
         """
         Initializes the judge based on the experiment's judge_generation_config.
@@ -27,7 +28,7 @@ class CorrectnessJudge:
         )
         self.model.eval()
 
-    def _extract_final_answer(self, response: str) -> Optional[str]:
+    def _extract_model_final_answer(self, response: str) -> Optional[str]:
         """
         Extracts only the final answer after the </think> tag.
         If no tag is found, returns None.
@@ -39,44 +40,50 @@ class CorrectnessJudge:
             return response[pos + len(tag):].strip()
         return None
 
-    def _parse_judge_decision(self, judge_full_response: str) -> Optional[bool]:
-        """
-        Looks for a 'yes' or 'no' answer in the judge's response,
-        specifically after the judge has finished its own thinking process.
-        """
-
-        final_answer = self._extract_final_answer(judge_full_response)
-        if final_answer is None:
-            final_answer = judge_full_response
-            
-        decision_area = final_answer.lower()
-            
-        yes_matches = list(re.finditer(r'\byes\b', decision_area))
-        no_matches = list(re.finditer(r'\bno\b', decision_area))
-        
-        all_matches = []
-        for m in yes_matches:
-            all_matches.append(('yes', m.start()))
-        for m in no_matches:
-            all_matches.append(('no', m.start()))
-            
-        if not all_matches:
-            return None # Default to None if no clear yes/no found
-            
-        # Take the last occurrence of either 'yes' or 'no'
-        all_matches.sort(key=lambda x: x[1])
-        return all_matches[-1][0] == 'yes'
     def unload_model(self):
         """
         Unloads the model from memory.
         """
         del self.model
         torch.cuda.empty_cache()
+
+
+    def _parse_judge_decision(self, judge_response: str) -> str:
+        """
+        Parses the judge's response to determine if the model's answer was correct.
+        Looks for "Correct" or "Incorrect" in the response.
+        Returns True for Correct, False for Incorrect, None if undecided.
+        """
+        response_body = ""
+        if "<think>" in judge_response.lower():
+            think_pos = judge_response.lower().find("<think>")
+            if think_pos != -1:
+                response_body = judge_response[:think_pos].strip()
+            else:
+                response_body = ""
+        else:
+            response_body = judge_response
+        
+        answers_found = []
+        for valid_answer in self.valid_answers:
+            if re.search(r'\b' + re.escape(valid_answer) + r'\b', response_body, re.IGNORECASE):
+                answers_found.append(valid_answer)
+
+        if len(answers_found) == 0:
+            return None
+        elif len(answers_found) > 1:
+            return ",".join(answers_found)
+        else:
+            return answers_found[0]
+
     def run(self, batch_size: int = 8, start_index: int = 0, end_index: Optional[int] = None):
         """
         Runs the judge on the experiment's datapoints within the specified range.
         Updates the datapoints in place with judge_response and judge_decision.
         """
+        if not self.experiment.judge_generation_config:
+            print("ERROR: No judge generation config found in the experiment.")
+            return
         datapoints = self.experiment.datapoints
         if end_index is None:
             end_index = len(datapoints)
@@ -89,9 +96,9 @@ class CorrectnessJudge:
             
             for dp in batch:
                 # We need to concanate in case there was no injection (generally more robust than selecting one of them)
-                full_model_response = "".join(dp.upto_injection_tokens) + "".join(dp.after_injection_tokens)
+                full_model_response = dp.upto_injection_string + dp.after_injection_string
                 
-                model_answer = self._extract_final_answer(full_model_response)
+                model_answer = self._extract_model_final_answer(full_model_response)
                 
                 prompt = self.config.judge_prompt.format(
                     question=dp.question_contents,
@@ -124,6 +131,7 @@ class CorrectnessJudge:
                 # Record entire response as a list of string tokens
                 dp.judge_response = [t.replace('Ġ', ' ').replace('Ċ', '\n') for t in self.tokenizer.convert_ids_to_tokens(generated_ids[j].tolist(), skip_special_tokens=True)]
                 dp.judge_prompt = [t.replace('Ġ', ' ').replace('Ċ', '\n') for t in self.tokenizer.convert_ids_to_tokens(inputs.input_ids[j].tolist(), skip_special_tokens=True)]
+                
                 dp.judge_decision = self._parse_judge_decision(judge_full_response)
                 
                 print(f"  Datapoint {dp.question_id}: Decision = {dp.judge_decision}")
