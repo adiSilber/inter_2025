@@ -1,5 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
+from enum import Enum
 import os
 from typing import List, Optional, Dict, Any, TYPE_CHECKING
 from abc import ABC, abstractmethod
@@ -41,6 +42,7 @@ class ActivationCapturer(ABC):
         pass
     def captured_activations(self) -> Dict[str, List[torch.Tensor]]:
         return self.activations
+    
     def clean_captured_activations(self): # we never remove the indices from the arrays as we rely on them for accessing the current positions in the generators. we only empty the tensors.
         for arr in self.activations.values():
             for i in range(len(arr)):
@@ -49,14 +51,24 @@ class ActivationCapturer(ABC):
     def kill_activations_array_reset_index(self):
         for key in self.activations:
             self.activations[key] = []
-    @abstractmethod
-    def __enter__(self,mode: GenerationMode):
-        """Register hooks."""
-        pass
+    def capturer(self,mode: GenerationMode,datapoints: list[DataPoint]) -> ActivationCapturer:
+        self.generation_mode = mode
+        self.datapoints = datapoints
+        return self
+    
+    def __enter__(self):
+        if self.model is None or self.generation_mode is None:
+            raise ValueError("you must get the context from 'capturer'")
+        self.attach_hooks()
 
-    @abstractmethod
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Remove hooks."""
+        self.generation_mode = None
+        self.remove_hooks()
+    @abstractmethod
+    def attach_hooks(self):
+        pass
+    @abstractmethod
+    def remove_hooks(self):
         pass
 
 @dataclass
