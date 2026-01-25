@@ -11,8 +11,6 @@ from pathvalidate import sanitize_filename
 if TYPE_CHECKING:
     from dataset_loaders import aggregated_dataset_loader
 
-from collections import Enum
-
 class GenerationMode(Enum):
     QUESTION_PREFILL = "question"   
     INJECTION_PREFILL = "injection"
@@ -115,9 +113,12 @@ class DataPoint:
     upto_injection_tokens: list[str] = field(default_factory=list) # Substring of model_response up to the injection point
     after_injection_tokens: list[str] = field(default_factory=list)
 
+    upto_injection_string: str = ""
+    after_injection_string: str = ""
+
 
     judge_response: list[str] = field(default_factory=list)
-    judge_decision: Optional[bool] = None
+    judge_decision: Optional[str] = None
     judge_prompt: list[str] = field(default_factory=list)
 
     aha_moment_first_tokens: list[int] = field(default_factory=list)# The index of the first token of the aha moment in the response
@@ -125,6 +126,9 @@ class DataPoint:
     
     recovery_starting_indices: list[int] = field(default_factory=list) # [start, end] tokens where model starts questioning injection
     recovery_complete_indices: list[int] = field(default_factory=list) # [start, end] tokens where model fully recovers
+    
+    recovery_token_index: int = -1  # Single token index where recovery starts (-1 = never recovered)
+    meaningful_tokens_in_question: list[int] = field(default_factory=list)  # Indices of meaningful tokens in the question
     
     should_capture_activations: bool = False
 
