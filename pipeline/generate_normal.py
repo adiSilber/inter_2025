@@ -1,8 +1,8 @@
 import torch
 import contextlib
 from typing import List, Optional
-from transformers import AutoModelForCausalLM, AutoTokenizer, GenerationMode
-from pipeline.interface import Experiment, ModelGenerationConfig, DataPoint, ActivationCapturer
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from pipeline.interface import Experiment, ModelGenerationConfig, DataPoint, ActivationCapturer,GenerationMode
 
 # Assuming the previous dataclasses and Experiment class are defined above
 
@@ -32,6 +32,9 @@ class GenerateSimple:
             trust_remote_code=True,
             **kwargs
         )
+
+        self.gen = torch.Generator(device=device)
+        self.gen.manual_seed(seed=experiment.seed)
         
         if self.device == "cpu":
             self.model.to(self.device)
@@ -124,9 +127,6 @@ class GenerateSimple:
         ctx_manager = capturer if should_capture else contextlib.nullcontext()
         if should_capture:
             capturer.bind(self.model)
-
-
-
 
         formatted_prompt = self.config.question_prompt_template.format(datapoint.question_contents)
         
@@ -309,4 +309,4 @@ class GenerateSimple:
         
         # Sample from the filtered distribution
         probs = torch.softmax(logits, dim=-1)
-        return torch.multinomial(probs, num_samples=1).squeeze(-1)
+        return torch.multinomial(probs, num_samples=1,generator=self.gen).squeeze(-1)
