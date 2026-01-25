@@ -10,6 +10,14 @@ from pathvalidate import sanitize_filename
 if TYPE_CHECKING:
     from dataset_loaders import aggregated_dataset_loader
 
+from collections import Enum
+
+class GenerationMode(Enum):
+    QUESTION_PREFILL = "question"   
+    INJECTION_PREFILL = "injection"
+    UPTO_INJECTION = "injection"
+    AFTER_INJECTION = "after_injection" 
+
 def get_unique_path(path: str) -> str:
     """Returns a unique path by appending _v1, _v2, etc., if the file already exists."""
     if not os.path.exists(path):
@@ -42,7 +50,7 @@ class ActivationCapturer(ABC):
         for key in self.activations:
             self.activations[key] = []
     @abstractmethod
-    def __enter__(self):
+    def __enter__(self,mode: GenerationMode):
         """Register hooks."""
         pass
 

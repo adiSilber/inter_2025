@@ -1,7 +1,7 @@
 import torch
 import contextlib
 from typing import List, Optional
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, GenerationMode
 from pipeline.interface import Experiment, ModelGenerationConfig, DataPoint, ActivationCapturer
 
 # Assuming the previous dataclasses and Experiment class are defined above
@@ -143,7 +143,7 @@ class GenerateSimple:
         past_key_values = None
         
         # prefill, get kv cache
-        with ctx_manager, torch.no_grad():
+        with ctx_manager(GenerationMode.QUESTION_PREFILL), torch.no_grad():
             outputs = self._safe_model_call(input_ids=context_ids, use_cache=True)
             past_key_values = outputs.past_key_values
         print(f"    Prefill complete, KV cache initialized")
@@ -164,7 +164,7 @@ class GenerateSimple:
         next_input_id = trigger_token
 
         # generate upto injection or end
-        with ctx_manager, torch.no_grad():
+        with ctx_manager(GenerationMode.UPTO_INJECTION), torch.no_grad():
             while (
                 len(tokens_upto_injection) < self.experiment.model_generation_config.sampling_params.max_new_tokens and # max tokens
                     not self.experiment.model_generation_config.should_stop.should_stop(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection, skip_special_tokens=False)) and # stop to inject (token strings)
@@ -219,7 +219,7 @@ class GenerateSimple:
             
             context_ids = inject_tokens[:, :-1] # All but last token
             trigger_token = inject_tokens[:, -1:] # first token for generation
-            with ctx_manager, torch.no_grad():
+            with ctx_manager(GenerationMode.INJECTION_PREFILL), torch.no_grad():
                 outputs = self._safe_model_call(
                             input_ids=context_ids,
                             past_key_values=past_key_values,
@@ -240,7 +240,7 @@ class GenerateSimple:
             tokens_after_injection = []
 
             next_input_id  = trigger_token
-            with ctx_manager, torch.no_grad():
+            with ctx_manager(GenerationMode.AFTER_INJECTION), torch.no_grad():
                 while ( len(tokens_upto_injection+tokens_after_injection) < self.experiment.model_generation_config.sampling_params.max_new_tokens and # max tokens
                     not self.experiment.model_generation_config.global_stop.should_stop(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection + tokens_after_injection, skip_special_tokens=False)) ): # global stop on combined sequence
                         outputs = self._safe_model_call(
