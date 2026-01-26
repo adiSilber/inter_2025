@@ -51,30 +51,29 @@ class CorrectnessJudge:
     def _parse_judge_decision(self, judge_response: str) -> str:
         """
         Parses the judge's response to determine if the model's answer was correct.
-        Looks for "Correct" or "Incorrect" in the response.
-        Returns True for Correct, False for Incorrect, None if undecided.
+        Looks for valid answer words after </think> tag.
+        Returns the FIRST valid answer found, or None if undecided.
         """
-        response_body = ""
-        if "<think>" in judge_response.lower():
-            think_pos = judge_response.lower().find("<think>")
-            if think_pos != -1:
-                response_body = judge_response[:think_pos].strip()
-            else:
-                response_body = ""
-        else:
-            response_body = judge_response
+        response_lower = judge_response.lower()
         
-        answers_found = []
-        for valid_answer in self.valid_answers:
-            if re.search(r'\b' + re.escape(valid_answer) + r'\b', response_body, re.IGNORECASE):
-                answers_found.append(valid_answer)
-
-        if len(answers_found) == 0:
-            return None
-        elif len(answers_found) > 1:
-            return ",".join(answers_found)
+        # Look for </think> tag and take text AFTER it
+        if "</think>" in response_lower:
+            think_end_pos = response_lower.find("</think>")
+            response_body = judge_response[think_end_pos + len("</think>"):].strip()
         else:
-            return answers_found[0]
+            response_body = judge_response.strip()
+        
+        # Find the FIRST valid answer in the response (by position)
+        first_match = None
+        first_pos = len(response_body)
+        
+        for valid_answer in self.valid_answers:
+            match = re.search(r'\b' + re.escape(valid_answer) + r'\b', response_body, re.IGNORECASE)
+            if match and match.start() < first_pos:
+                first_pos = match.start()
+                first_match = valid_answer
+        
+        return first_match
 
     def run(self, batch_size: int = 8, start_index: int = 0, end_index: Optional[int] = None):
         """

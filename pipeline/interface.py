@@ -52,7 +52,7 @@ class ActivationCapturer(ABC):
     def capturer(self,mode: GenerationMode,datapoints: list[DataPoint]) -> ActivationCapturer:
         self.generation_mode = mode
         self.datapoints = datapoints
-        return self
+        return self 
     
     def __enter__(self):
         if self.model is None or self.generation_mode is None:
@@ -239,7 +239,15 @@ class Experiment:
             datapoint.activations_after_injection = None
     def load_datapoints(self, filepath: str):
         with open(filepath, "rb") as f:
-            datapoints,start,end = dill.load(f)
+            data = dill.load(f)
+        if isinstance(data, tuple) and len(data) == 3:
+            datapoints, start, end = data
+        elif isinstance(data, list):
+            datapoints = data
+            start, end = 0, len(datapoints)
+        else:
+            raise TypeError(f"Unexpected data type in file: {type(data)}")
+        
         # Ensure the list is large enough to handle the slice assignment
         if len(self.datapoints) < end:
             self.datapoints.extend([None] * (end - len(self.datapoints)))
