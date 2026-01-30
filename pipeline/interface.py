@@ -49,7 +49,7 @@ class ActivationCapturer(ABC):
     def kill_activations_array_reset_index(self):
         for key in self.activations:
             self.activations[key] = []
-    def capturer(self,mode: GenerationMode,datapoints: list[DataPoint]) -> ActivationCapturer:
+    def capturer(self, mode: GenerationMode, datapoints: list[DataPoint], **kwargs) -> ActivationCapturer:
         self.generation_mode = mode
         self.datapoints = datapoints
         return self 

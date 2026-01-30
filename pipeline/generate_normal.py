@@ -2,7 +2,7 @@ import torch
 import contextlib
 from typing import List, Optional
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from pipeline.interface import Experiment, ModelGenerationConfig, DataPoint, ActivationCapturer,GenerationMode
+from pipeline.interface import Experiment, ModelGenerationConfig, DataPoint, ActivationCapturer, GenerationMode
 
 # Assuming the previous dataclasses and Experiment class are defined above
 
@@ -33,15 +33,30 @@ class GenerateSimple:
             **kwargs
         )
 
-        self.gen = torch.Generator(device=device)
-        self.gen.manual_seed(seed=experiment.seed)
+        seed = int(experiment.seed)
+        torch.manual_seed(seed)
+        if self.device == "cuda":
+            torch.cuda.manual_seed(seed)
+            torch.cuda.manual_seed_all(seed)
+        self.gen = torch.Generator(device=self.device)
+        self.gen.manual_seed(seed)
         
         if self.device == "cpu":
             self.model.to(self.device)
         
+        # # adisi check if its a good thing - cursor suggested
+        # # Force attention output in config (some models need this)
+        # if experiment.activation_capturer is not None:
+        #     self.model.config.output_attentions = True
+        # # adisi check if its a good thing - cursor suggested
         self.model.eval()
 
     def _safe_model_call(self, **kwargs):
+        # # adisi check if its a good thing - cursor suggested
+        # # Always pass output_attentions=True if we have a capturer
+        # if self.experiment.activation_capturer is not None:
+        #     kwargs['output_attentions'] = True
+        # # adisi check if its a good thing - cursor suggested
         try:
             return self.model(**kwargs)
         except RuntimeError as e:
@@ -89,11 +104,25 @@ class GenerateSimple:
         """
         Unload model weights and free GPU/CPU memory.
         """
+        import gc
         print("Unloading model...")
-        if hasattr(self, 'model'):
+        
+        # Move model to CPU first to free GPU memory, then delete
+        if hasattr(self, 'model') and self.model is not None:
+            self.model.cpu()
             del self.model
+            self.model = None
+        
         if hasattr(self, 'tokenizer'):
             del self.tokenizer
+            self.tokenizer = None
+        
+        if hasattr(self, 'gen'):
+            del self.gen
+            self.gen = None
+        
+        # Force garbage collection
+        gc.collect()
         
         # Clear CUDA cache if using GPU
         if self.device == "cuda" and torch.cuda.is_available():
@@ -143,7 +172,7 @@ class GenerateSimple:
         past_key_values = None
         
         # prefill, get kv cache
-        with ctx_manager(GenerationMode.QUESTION_PREFILL), torch.no_grad():
+        with ctx_manager.capturer(GenerationMode.QUESTION_PREFILL, [datapoint]), torch.no_grad():
             outputs = self._safe_model_call(input_ids=context_ids, use_cache=True)
             past_key_values = outputs.past_key_values
         print(f"    Prefill complete, KV cache initialized")
@@ -164,7 +193,7 @@ class GenerateSimple:
         next_input_id = trigger_token
 
         # generate upto injection or end
-        with ctx_manager(GenerationMode.UPTO_INJECTION), torch.no_grad():
+        with ctx_manager.capturer(GenerationMode.UPTO_INJECTION,[datapoint]), torch.no_grad():
             while (
                 len(tokens_upto_injection) < self.experiment.model_generation_config.sampling_params.max_new_tokens and # max tokens
                     not self.experiment.model_generation_config.should_stop.should_stop(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection, skip_special_tokens=False)) and # stop to inject (token strings)
@@ -219,7 +248,7 @@ class GenerateSimple:
             
             context_ids = inject_tokens[:, :-1] # All but last token
             trigger_token = inject_tokens[:, -1:] # first token for generation
-            with ctx_manager(GenerationMode.INJECTION_PREFILL), torch.no_grad():
+            with ctx_manager.capturer(GenerationMode.INJECTION_PREFILL, [datapoint]), torch.no_grad():
                 outputs = self._safe_model_call(
                             input_ids=context_ids,
                             past_key_values=past_key_values,
@@ -240,7 +269,7 @@ class GenerateSimple:
             tokens_after_injection = []
 
             next_input_id  = trigger_token
-            with ctx_manager(GenerationMode.AFTER_INJECTION), torch.no_grad():
+            with ctx_manager.capturer(GenerationMode.AFTER_INJECTION,[datapoint], question_to_clip_indecies=range(len(datapoint.question_formatted_contents_tokenized))), torch.no_grad():
                 while ( len(tokens_upto_injection+tokens_after_injection) < self.experiment.model_generation_config.sampling_params.max_new_tokens and # max tokens
                     not self.experiment.model_generation_config.global_stop.should_stop(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection + tokens_after_injection, skip_special_tokens=False)) ): # global stop on combined sequence
                         outputs = self._safe_model_call(

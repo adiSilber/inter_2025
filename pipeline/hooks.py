@@ -1,3 +1,6 @@
+import torch
+from pipeline.interface import ActivationCapturer, DataPoint, GenerationMode
+
 
 class AttentionMapCapturerClipActivations(ActivationCapturer):
     """Captures attention maps and can intervene by clipping attention to question tokens."""
@@ -6,13 +9,16 @@ class AttentionMapCapturerClipActivations(ActivationCapturer):
         super().__init__()
         self.hooks = []
         self.model = None
-        self._v_cache = {}  # Store V tensors per layer
-    # def capturer(self, mode, question_indecies: list[int]):    # adisi changed - currently I clip all question indices
-    #     self.question_indecies = question_indecies
-    #     return super().capturer(mode)
+        # self._v_cache = {}  # Store V tensors per layer
 
-    def capturer(self, mode, datapoints: list[DataPoint]):
+    def capturer(self, mode, datapoints: list[DataPoint], question_to_clip_indecies: list[int]=[]):    # adisi changed - currently I clip all question indices
+        # Yonatan: I returned this function to keep the code open for chanegs, if needed, config correctly outside 
+        # This wat we also don't break the interface with the parent class
+        self.question_to_clip_indecies = question_to_clip_indecies
         return super().capturer(mode, datapoints)
+
+    # def capturer(self, mode, datapoints: list[DataPoint], **kwargs):
+    #     return super().capturer(mode, datapoints)
 
     def bind(self, model: torch.nn.Module):
         """Analyze the model and prepare to capture attention maps."""
@@ -75,13 +81,14 @@ class AttentionMapCapturerClipActivations(ActivationCapturer):
 
                 self.activations[f"layer_{layer_idx}_attention"].append(cpu_attn)
                 if self.generation_mode == GenerationMode.AFTER_INJECTION:
-                    question_indexes = range(len(self.datapoints[0].question_formatted_contents_tokenized))
-                    for i in question_indexes:
+                    # question_indexes = range(len(self.datapoints[0].question_formatted_contents_tokenized))
+                    for i in self.question_to_clip_indecies:
                         attention_weights[:, :, :, i] = torch.clamp(attention_weights[:, :, :, i], max=1e-4)
                     try:
                         clipped = attention_weights.detach().cpu()
                     except Exception:
                         # If not a tensor, store as-is
+                        print("could not detach attention weights, saving unclipped weights")
                         clipped = attention_weights
 
                     self.activations[f"layer_{layer_idx}_attention_clipped"].append(clipped)
