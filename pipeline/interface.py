@@ -95,7 +95,7 @@ class JudgePromptTemplate(ABC):
         raise NotImplementedError
 class Injection(ABC):
     @abstractmethod
-    def get_injection(self,previous_tokens: Optional[list[str]]=None) -> str:
+    def get_injection(self, previous_tokens: Optional[list[str]]=None, datapoint=None) -> str:
         raise NotImplementedError
 
 @dataclass

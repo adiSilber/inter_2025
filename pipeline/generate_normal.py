@@ -38,6 +38,8 @@ class GenerateSimple:
         if self.device == "cuda":
             torch.cuda.manual_seed(seed)
             torch.cuda.manual_seed_all(seed)
+        torch.use_deterministic_algorithms(True)
+        torch.backends.cudnn.deterministic = True
         self.gen = torch.Generator(device=self.device)
         self.gen.manual_seed(seed)
         
