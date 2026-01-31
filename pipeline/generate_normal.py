@@ -238,7 +238,7 @@ class GenerateSimple:
 
         if len(tokens_upto_injection) < self.experiment.model_generation_config.sampling_params.max_new_tokens and not self.experiment.model_generation_config.global_stop.should_stop(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection, skip_special_tokens=False)): # we do need to inject, this is what broke the loop
 
-            inject_text = self.experiment.model_generation_config.get_injection.get_injection(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection, skip_special_tokens=False))
+            inject_text = self.experiment.model_generation_config.get_injection.get_injection(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection, skip_special_tokens=False), datapoint=datapoint)
             datapoint.injection_text = inject_text
             print(f"    Injecting text: '{inject_text[:100]}...'")
             inject_tokens = self.tokenizer.encode(inject_text, return_tensors="pt",add_special_tokens=False).to(self.device)

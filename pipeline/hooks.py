@@ -8,11 +8,12 @@ from pipeline.interface import ActivationCapturer, DataPoint, GenerationMode
 class AttentionMapCapturerClipActivations(ActivationCapturer):
     """Captures attention maps and can intervene by clipping attention to question tokens."""
     
-    def __init__(self):
+    def __init__(self, layers_to_clip=None, capture_weights=True):
         super().__init__()
         self.hooks = []
         self.model = None
-        # self._v_cache = {}  # Store V tensors per layer
+        self.layers_to_clip = layers_to_clip   # None = all layers, set/list = specific layers
+        self.capture_weights = capture_weights  # False = skip storing tensors
 
     def capturer(self, mode, datapoints: list[DataPoint], question_to_clip_indecies: list[int]=[]):    # adisi changed - currently I clip all question indices
         # Yonatan: I returned this function to keep the code open for chanegs, if needed, config correctly outside 
@@ -74,14 +75,17 @@ class AttentionMapCapturerClipActivations(ActivationCapturer):
             attn_weights = nn.functional.dropout(attn_weights, p=dropout, training=module.training)
 
             # Capture original (unclipped) attention weights
-            capturer.activations[f"layer_{module.layer_idx}_attention"].append(attn_weights.detach().cpu())
+            if capturer.capture_weights:
+                capturer.activations[f"layer_{module.layer_idx}_attention"].append(attn_weights.detach().cpu())
 
             # Clip and record clipped weights when in AFTER_INJECTION mode
-            if capturer.generation_mode == GenerationMode.AFTER_INJECTION:
+            if capturer.generation_mode == GenerationMode.AFTER_INJECTION and \
+               (capturer.layers_to_clip is None or module.layer_idx in capturer.layers_to_clip):
                 clipped = attn_weights.clone()
                 for i in capturer.question_to_clip_indecies:
                     clipped[:, :, :, i] = torch.clamp(clipped[:, :, :, i], max=1e-4)
-                capturer.activations[f"layer_{module.layer_idx}_attention_clipped"].append(clipped.detach().cpu())
+                if capturer.capture_weights:
+                    capturer.activations[f"layer_{module.layer_idx}_attention_clipped"].append(clipped.detach().cpu())
                 attn_weights = clipped  # model now uses clipped weights
 
             attn_output = torch.matmul(attn_weights, value_states)
