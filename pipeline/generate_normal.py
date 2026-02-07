@@ -46,19 +46,9 @@ class GenerateSimple:
         if self.device == "cpu":
             self.model.to(self.device)
         
-        # # adisi check if its a good thing - cursor suggested
-        # # Force attention output in config (some models need this)
-        # if experiment.activation_capturer is not None:
-        #     self.model.config.output_attentions = True
-        # # adisi check if its a good thing - cursor suggested
         self.model.eval()
 
     def _safe_model_call(self, **kwargs):
-        # # adisi check if its a good thing - cursor suggested
-        # # Always pass output_attentions=True if we have a capturer
-        # if self.experiment.activation_capturer is not None:
-        #     kwargs['output_attentions'] = True
-        # # adisi check if its a good thing - cursor suggested
         try:
             return self.model(**kwargs)
         except RuntimeError as e:
@@ -106,25 +96,11 @@ class GenerateSimple:
         """
         Unload model weights and free GPU/CPU memory.
         """
-        import gc
         print("Unloading model...")
-        
-        # Move model to CPU first to free GPU memory, then delete
-        if hasattr(self, 'model') and self.model is not None:
-            self.model.cpu()
+        if hasattr(self, 'model'):
             del self.model
-            self.model = None
-        
         if hasattr(self, 'tokenizer'):
             del self.tokenizer
-            self.tokenizer = None
-        
-        if hasattr(self, 'gen'):
-            del self.gen
-            self.gen = None
-        
-        # Force garbage collection
-        gc.collect()
         
         # Clear CUDA cache if using GPU
         if self.device == "cuda" and torch.cuda.is_available():
