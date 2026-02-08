@@ -2,64 +2,6 @@ from typing import Optional
 from pipeline.interface import Injection, ShouldStop, ModelPromptTemplate, JudgePromptTemplate
 
 
-class ImmediateStopCondition(ShouldStop):
-    """Stop immediately so the injection is inserted before any model-generated tokens."""
-    def should_stop(self, previous_tokens: Optional[list[str]] = None) -> bool:
-        return True
-
-
-class SentenceEndStopCondition(ShouldStop):
-    """Stop when encountering sentence-ending punctuation after 20 tokens."""
-    def should_stop(self, previous_tokens: Optional[list[str]] = None) -> bool:
-        if previous_tokens is None or len(previous_tokens) < 20:
-            return False
-        if previous_tokens[-1] in {'.', '!', '?'} or previous_tokens[-1].endswith(('.', '!', '?')):
-            return True
-        return False
-
-
-class EOSTokenStopCondition(ShouldStop):
-    """Stop when encountering the end-of-sentence special token."""
-    def should_stop(self, previous_tokens: Optional[list[str]] = None) -> bool:
-        if previous_tokens == [] or previous_tokens is None:
-            return False
-        return previous_tokens[-1] == '<｜end▁of▁sentence｜>'
-
-
-class ShortAnswerPromptTemplate(ModelPromptTemplate):
-    """Format question with instruction to answer shortly."""
-    def format(self, question: str) -> str:
-        return f'<｜begin▁of▁sentence｜>Answer the question in short<｜User｜>{question}<｜Assistant｜><think>\n'
-
-
-class MathEvaluatorJudgePrompt(JudgePromptTemplate):
-    """Format judge prompt for problem evaluation."""
-    def format(self, question: str, model_answer: str, correct_answer: str) -> str:
-        return (
-"""
-<｜begin▁of▁sentence｜>'
-You are an expert problem evaluator. Compare the student's answer with the correct answer.<｜User｜>"
-Question: \"\"\"{question} \"\"\"
-
-
-Correct Answer: \"\"\"{correct_answer} \"\"\"
-
-
-Student's Response:  \"\"\" {model_answer} \"\"\"
-
-
-1. Does the student's response correctly answer the question?"
-2. Do they try to answer the question but have an incorrect answer?"
-3. Do they fail to provide an answer at all?"
-4. Or do they talk about a totaly different subject?
-Respond with ONLY with:
-'correct' for option 1.
-'incorrect' for option 2.
-'no_answer' for option 3.
-'irrelevant' for option 4.
-<｜Assistant｜>\n"
-"""
-)
 
 
 class SunWeightRedirectInjection(Injection):
