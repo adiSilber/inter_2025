@@ -11,9 +11,8 @@ evya.sh
 .cache
 # lm-evaluation-harness/
 comm
-.artifacts_old
 .cache
-.artifacts_old2
+.artifacts_old*
 wandb
 
 
