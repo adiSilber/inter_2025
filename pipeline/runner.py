@@ -65,7 +65,7 @@ import pickle
 import torch
 from typing import Dict, List, Optional
 from pipeline.interface import (
-    Experiment, GenerationMode, ModelGenerationConfig, JudgeGenerationConfig, 
+    Experiment, GenerationMode, JudgeDecision, ModelGenerationConfig, JudgeGenerationConfig, 
     SamplingParams, DataPoint, ActivationCapturer,
     ShouldStop, Injection, ModelPromptTemplate, JudgePromptTemplate
 )
@@ -203,6 +203,12 @@ def run_generation():
     judge.unload_model()
 
     print("\n4. Done generating judge decisions. datapoints populated")
+
+    # Compute and log judge correctness overall score
+    total_judged = len(experiment.datapoints)
+    correct_count = sum(1 for dp in experiment.datapoints if dp.judge_decision == JudgeDecision.CORRECT)
+    judge_correctness = correct_count / total_judged if total_judged else 0.0
+    print(f"   Judge correctness: {correct_count}/{total_judged} = {judge_correctness:.4f}")
 
     print("resaving datapoints with judge decisions...")
     experiment.store_datapoints_only(output_dir, start_index=0, end_index=len(experiment.datapoints), offset_relative_to_experiment=start,override=True)

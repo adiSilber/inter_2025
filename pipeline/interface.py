@@ -11,6 +11,12 @@ from pathvalidate import sanitize_filename
 if TYPE_CHECKING:
     from dataset_loaders import aggregated_dataset_loader
 
+class JudgeDecision(Enum):
+    CORRECT = 'correct'
+    INCORRECT = 'incorrect'
+    NO_ANSWER = 'no_answer'
+    IRRELEVANT = 'irrelevant'
+
 class GenerationMode(Enum):
     QUESTION_PREFILL = "question"   
     INJECTION_PREFILL = "injection"
@@ -118,7 +124,7 @@ class DataPoint:
 
 
     judge_response: list[str] = field(default_factory=list)
-    judge_decision: Optional[str] = None
+    judge_decision: Optional[JudgeDecision] = None
     judge_prompt: list[str] = field(default_factory=list)
 
     aha_moment_first_tokens: list[int] = field(default_factory=list)# The index of the first token of the aha moment in the response

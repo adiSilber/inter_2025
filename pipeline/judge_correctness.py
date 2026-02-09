@@ -1,12 +1,11 @@
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from tqdm import tqdm
-from pipeline.interface import Experiment, DataPoint, JudgeGenerationConfig
+from pipeline.interface import Experiment, DataPoint, JudgeGenerationConfig,JudgeDecision
 from typing import List, Optional
 import re
 
 class CorrectnessJudge:
-    valid_answers = ['correct', 'incorrect', 'no_answer', 'irrelevant'] 
     def __init__(self, experiment: Experiment, device: str = "cuda"):
         """
         Initializes the judge based on the experiment's judge_generation_config.
@@ -48,7 +47,7 @@ class CorrectnessJudge:
         torch.cuda.empty_cache()
 
 
-    def _parse_judge_decision(self, judge_response: str) -> str:
+    def _parse_judge_decision(self, judge_response: str) -> JudgeDecision:
         """
         Parses the judge's response to determine if the model's answer was correct.
         Looks for valid answer words after </think> tag.
