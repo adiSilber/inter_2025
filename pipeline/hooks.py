@@ -136,7 +136,7 @@ class AttentionMapCapturer(ActivationCapturer):
         self.hooks = []
         self.layers: nn.ModuleList
 
-    def bind(self, model: torch.nn.Module):
+    def bind(self, model: torch.nn.Module,**kwargs):
         if hasattr(model, "model") and hasattr(model.model, "layers"):
             self.layers = model.model.layers  # type: ignore
         elif hasattr(model, "layers"):

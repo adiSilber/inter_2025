@@ -45,7 +45,7 @@ class ActivationCapturer(ABC):
         self.datapoints: Optional[list[DataPoint]] = None
 
     @abstractmethod
-    def bind(self, model: torch.nn.Module):
+    def bind(self, model: torch.nn.Module,**kwargs):
         """Analyze the model and prepare hooks."""
         pass
     def captured_activations(self) -> Dict[str, List[Optional[torch.Tensor]]]:
