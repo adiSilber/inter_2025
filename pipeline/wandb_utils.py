@@ -37,7 +37,6 @@ def experiment_config_for_wandb(
     dataset = experiment.dataset
     strategy_name = dataset.strategy.name
 
-
     config: Dict[str, Any] = {
         "experiment_name": experiment.name,
         "runner_name": experiment.runner_name,
@@ -54,16 +53,21 @@ def experiment_config_for_wandb(
         "model_dtype": str(mc.dtype),
         "model_sampling_params": _sampling_params_dict(mc.sampling_params),
         # Judge
-        "judge_name": jc.judge_name,
-        "judge_model_path": jc.judge_model_path,
-        "judge_prompt": _class_name(jc.judge_prompt),
-        "judge_dtype": str(jc.dtype),
-        "judge_sampling_params": _sampling_params_dict(jc.sampling_params),
         # Dataset
         "dataset_loaders": [type(d).__name__ for d in dataset.loaders],
         "dataset_strategy": strategy_name,
         "dataset_seed": getattr(dataset, "seed", None),
     }
+    if jc:
+        config.update(
+            {
+                "judge_name": jc.judge_name,
+                "judge_model_path": jc.judge_model_path,
+                "judge_prompt": _class_name(jc.judge_prompt),
+                "judge_dtype": str(jc.dtype),
+                "judge_sampling_params": _sampling_params_dict(jc.sampling_params),
+            }
+        )
     if experiment.activation_capturer is not None:
         cap = experiment.activation_capturer
         config["activation_capturer"] = _class_name(cap)

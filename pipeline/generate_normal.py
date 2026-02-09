@@ -7,7 +7,7 @@ from pipeline.interface import Experiment, ModelGenerationConfig, DataPoint, Act
 # Assuming the previous dataclasses and Experiment class are defined above
 
 class GenerateSimple:
-    def __init__(self, experiment: Experiment,device:str):
+    def __init__(self, experiment: Experiment, device: str):
         self.experiment = experiment
         self.config = experiment.model_generation_config
         self.device = device
@@ -44,7 +44,7 @@ class GenerateSimple:
         self.gen.manual_seed(seed)
         
         if self.device == "cpu":
-            self.model.to(self.device)
+            self.model.to(self.device) # type: ignore
         
         self.model.eval()
 
@@ -81,9 +81,9 @@ class GenerateSimple:
                 if hasattr(m, 'model') and hasattr(m.model, 'layers'):
                     layer = m.model.layers[0]
                 elif hasattr(m, 'layers'):
-                    layer = m.layers[0]
+                    layer = m.layers[0] # type: ignore
                 if layer is not None and hasattr(layer, 'self_attn'):
-                    attn = layer.self_attn
+                    attn = layer.self_attn # type: ignore
                     for name, param in attn.named_parameters():
                         print('attn param', name, getattr(param, 'shape', None))
             except Exception as e3:
@@ -130,9 +130,9 @@ class GenerateSimple:
 
         # Set up activation capturing context
         capturer = self.experiment.activation_capturer
-        should_capture = (capturer is not None) and datapoint.should_capture_activations
+        should_capture = datapoint.should_capture_activations
         ctx_manager = capturer if should_capture else contextlib.nullcontext()
-        if should_capture:
+        if should_capture and capturer is not None:
             capturer.bind(self.model)
 
         formatted_prompt = self.config.question_prompt_template.format(datapoint.question_contents)
@@ -150,13 +150,13 @@ class GenerateSimple:
         past_key_values = None
         
         # prefill, get kv cache
-        with ctx_manager.capturer(GenerationMode.QUESTION_PREFILL, [datapoint]), torch.no_grad():
+        with (capturer.capturer([GenerationMode.QUESTION_PREFILL], [datapoint]) if should_capture else contextlib.nullcontext()), torch.no_grad(): # type: ignore
             outputs = self._safe_model_call(input_ids=context_ids, use_cache=True)
             past_key_values = outputs.past_key_values
         print(f"    Prefill complete, KV cache initialized")
 
         # save activations for question (prefill)
-        if should_capture:
+        if should_capture and capturer is not None:
             # Create a deep copy of the activations structure and move to CPU/detach
             captured = capturer.captured_activations()
             datapoint.activations_question = {
@@ -171,7 +171,7 @@ class GenerateSimple:
         next_input_id = trigger_token
 
         # generate upto injection or end
-        with ctx_manager.capturer(GenerationMode.UPTO_INJECTION,[datapoint]), torch.no_grad():
+        with (capturer.capturer([GenerationMode.UPTO_INJECTION],[datapoint]) if should_capture else contextlib.nullcontext()), torch.no_grad(): # type: ignore
             while (
                 len(tokens_upto_injection) < self.experiment.model_generation_config.sampling_params.max_new_tokens and # max tokens
                     not self.experiment.model_generation_config.should_stop.should_stop(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection, skip_special_tokens=False)) and # stop to inject (token strings)
@@ -195,7 +195,7 @@ class GenerateSimple:
 
                     #update next token input
                     next_input_id = next_token.unsqueeze(-1)
-        if should_capture:
+        if should_capture and capturer is not None:
             # capture all activations upto injection or end
             captured = capturer.captured_activations()
             datapoint.activations_upto_injection = {
@@ -215,18 +215,18 @@ class GenerateSimple:
         if len(tokens_upto_injection) < self.experiment.model_generation_config.sampling_params.max_new_tokens and not self.experiment.model_generation_config.global_stop.should_stop(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection, skip_special_tokens=False)): # we do need to inject, this is what broke the loop
 
             inject_text = self.experiment.model_generation_config.get_injection.get_injection(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection, skip_special_tokens=False), datapoint=datapoint)
-            datapoint.injection_text = inject_text
+            datapoint.injection = inject_text
             print(f"    Injecting text: '{inject_text[:100]}...'")
             inject_tokens = self.tokenizer.encode(inject_text, return_tensors="pt",add_special_tokens=False).to(self.device)
             inject_tokens_list = inject_tokens[0].tolist()
-            datapoint.injection_tokenized = [t.replace('Ġ', ' ').replace('Ċ', '\n') for t in self.tokenizer.convert_ids_to_tokens(inject_tokens_list, skip_special_tokens=True)]
+            datapoint.injection_tokens = [t.replace('Ġ', ' ').replace('Ċ', '\n') for t in self.tokenizer.convert_ids_to_tokens(inject_tokens_list, skip_special_tokens=True)]
             print(f"    Injection tokenized: {len(inject_tokens_list)} tokens")
             datapoint.injection = inject_text
 
             
             context_ids = inject_tokens[:, :-1] # All but last token
             trigger_token = inject_tokens[:, -1:] # first token for generation
-            with ctx_manager.capturer(GenerationMode.INJECTION_PREFILL, [datapoint]), torch.no_grad():
+            with (capturer.capturer([GenerationMode.INJECTION], [datapoint]) if should_capture else contextlib.nullcontext()), torch.no_grad(): # type: ignore
                 outputs = self._safe_model_call(
                             input_ids=context_ids,
                             past_key_values=past_key_values,
@@ -235,7 +235,7 @@ class GenerateSimple:
             past_key_values = outputs.past_key_values
             print(f"    Injection prefill complete")
 
-            if should_capture:
+            if should_capture and capturer is not None:
                 captured = capturer.captured_activations()
                 datapoint.activations_injection = {
                     k: [t.detach().cpu() if t is not None else None for t in v] 
@@ -247,7 +247,7 @@ class GenerateSimple:
             tokens_after_injection = []
 
             next_input_id  = trigger_token
-            with ctx_manager.capturer(GenerationMode.AFTER_INJECTION,[datapoint], question_to_clip_indecies=range(len(datapoint.question_formatted_contents_tokenized))), torch.no_grad():
+            with (capturer.capturer([GenerationMode.AFTER_INJECTION],[datapoint], question_to_clip_indecies=range(len(datapoint.question_formatted_contents_tokenized))) if should_capture else contextlib.nullcontext()), torch.no_grad(): # type: ignore
                 while ( len(tokens_upto_injection+tokens_after_injection) < self.experiment.model_generation_config.sampling_params.max_new_tokens and # max tokens
                     not self.experiment.model_generation_config.global_stop.should_stop(self.tokenizer.convert_ids_to_tokens(tokens_upto_injection + tokens_after_injection, skip_special_tokens=False)) ): # global stop on combined sequence
                         outputs = self._safe_model_call(
@@ -266,7 +266,7 @@ class GenerateSimple:
                             print(f"    Generated {len(tokens_after_injection)} tokens after injection...")
 
                         next_input_id = next_token.unsqueeze(-1)
-            if should_capture:
+            if should_capture and capturer is not None:
                 captured = capturer.captured_activations()
                 datapoint.activations_after_injection = {
                     k: [t.detach().cpu() if t is not None else None for t in v] 

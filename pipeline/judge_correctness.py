@@ -11,7 +11,9 @@ class CorrectnessJudge:
         Initializes the judge based on the experiment's judge_generation_config.
         """
         self.experiment = experiment
-        self.config = experiment.judge_generation_config
+        if experiment.judge_generation_config is None:
+            raise ValueError("Experiment must have a judge_generation_config to use CorrectnessJudge")
+        self.config: JudgeGenerationConfig = experiment.judge_generation_config
         self.device = device
         
         print(f"Loading judge model: {self.config.judge_model_path}")
@@ -27,7 +29,7 @@ class CorrectnessJudge:
         )
         self.model.eval()
 
-    def _extract_model_final_answer(self, response: str) -> Optional[str]:
+    def _extract_model_final_answer(self, response: str) -> str:
         """
         Extracts only the final answer after the </think> tag.
         If no tag is found, returns None.
@@ -37,7 +39,7 @@ class CorrectnessJudge:
         if tag in lower_response:
             pos = lower_response.find(tag)
             return response[pos + len(tag):].strip()
-        return None
+        return ""
 
     def unload_model(self):
         """
@@ -47,7 +49,7 @@ class CorrectnessJudge:
         torch.cuda.empty_cache()
 
 
-    def _parse_judge_decision(self, judge_response: str) -> JudgeDecision:
+    def _parse_judge_decision(self, judge_response: str) -> Optional[JudgeDecision]:
         """
         Parses the judge's response to determine if the model's answer was correct.
         Looks for valid answer words after </think> tag.
@@ -66,8 +68,8 @@ class CorrectnessJudge:
         first_match = None
         first_pos = len(response_body)
         
-        for valid_answer in self.valid_answers:
-            match = re.search(r'\b' + re.escape(valid_answer) + r'\b', response_body, re.IGNORECASE)
+        for valid_answer in [member for member in JudgeDecision]:
+            match = re.search(r'\b' + re.escape(valid_answer.name) + r'\b', response_body, re.IGNORECASE)
             if match and match.start() < first_pos:
                 first_pos = match.start()
                 first_match = valid_answer

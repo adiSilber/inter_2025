@@ -3,8 +3,9 @@ import os
 import random
 import json
 import pandas as pd
-from typing import List, Dict, Any
+from typing import List, Dict, Any, cast
 from dataclasses import dataclass
+import inspect
 
 
 @dataclass
@@ -153,6 +154,7 @@ class GPQALoader(dataset_loader):
             # Load gpqa_diamond
             ds = load_dataset("Idavidrein/gpqa", "gpqa_diamond", split="train", cache_dir=cache_dir)
             for idx, row in enumerate(ds):
+                row = cast(Dict[str, Any], row)
                 self.data.append(question_item(
                     q=row['Question'],
                     a=row['Correct Answer'],
@@ -187,7 +189,7 @@ class aggregate_shuffle_strategy(Enum):
     ROUND_ROBIN = 2
     
 class aggregated_dataset_loader:
-    def __init__(self, datasets: list[dataset_loader], seed = -1, strategy : aggregate_shuffle_strategy = aggregate_shuffle_strategy.SEQUENTIAL, base_path=None) -> None:
+    def __init__(self, datasets: list[dataset_loader | type[dataset_loader]], seed = -1, strategy : aggregate_shuffle_strategy = aggregate_shuffle_strategy.SEQUENTIAL, base_path=None) -> None:
         """
         dataset_loaders: list of dataset_loader objects
         """
@@ -199,7 +201,7 @@ class aggregated_dataset_loader:
 
         # Instantiate the loader classes
         for ds in datasets:
-            if issubclass(ds, dataset_loader):
+            if inspect.isclass(ds) and issubclass(ds, dataset_loader):
                 loader = ds(base_path, seed)
                 loader._load_data()
                 self.loaders.append(loader)
@@ -259,15 +261,19 @@ class aggregated_dataset_loader:
             if self.seed != -1:
                 prev = random.getstate()
                 random.seed(self.seed)
-            current_loader = random.choice(self.loaders)
-            if self.seed != -1:
+                current_loader = random.choice(self.loaders)
                 random.setstate(prev)
+            else:
+                current_loader = random.choice(self.loaders)
+            
             try:
                 sample = current_loader.__next__(k)
                 return sample
             except StopIteration:
                 self.loaders.remove(current_loader)
                 return self.__next__(k)
+        
+        raise StopIteration
 
     def __len__(self) -> int:
         total = 0

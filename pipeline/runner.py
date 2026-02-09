@@ -16,14 +16,12 @@
 from math import ceil
 import os
 import sys
+from time import time
 
 
 
 
-sys.stdout.reconfigure(line_buffering=True)
-
-
-
+# sys.stdout.reconfigure(line_buffering=True)
 PROJECT_HOME = os.getcwd()
 CACHE_BASE = os.path.join(PROJECT_HOME, ".cache")
 os.makedirs(CACHE_BASE, exist_ok=True)
@@ -60,7 +58,6 @@ import subprocess
 print(subprocess.run(["nvidia-smi"], capture_output=True, text=True).stdout)
 
 
-
 import pickle
 import torch
 from typing import Dict, List, Optional
@@ -75,14 +72,22 @@ from pipeline.judge_correctness import CorrectnessJudge
 from pipeline.hooks import AttentionMapCapturer, AttentionMapCapturerClipActivations
 from pipeline.injections import (
     SunWeightRedirectInjection, QuadraticFormulaRedirectInjection, NearMissInjection, Math500NearMissInjection,
-    ImmediateStopCondition, SentenceEndStopCondition, EOSTokenStopCondition,
-    ShortAnswerPromptTemplate, MathEvaluatorJudgePrompt,
 )
 
+from pipeline.stops import SentenceEndStopCondition, EOSTokenStopCondition
+from pipeline.prompts import ShortAnswerPromptTemplate, MathEvaluatorJudgePrompt
+from pipeline.wandb_utils import experiment_config_for_wandb
+import wandb
+
+
+
 output_dir = "/home/ADV_2526a/evyataroren/inter_2025/artifacts"
+model_path = "/home/ADV_2526a/evyataroren/inter_2025/models/DS-qwen-7B/DeepSeek-R1-Distill-Qwen-7B"
+judge_model_path = "/home/ADV_2526a/evyataroren/inter_2025/models/DS-qwen-7B/DeepSeek-R1-Distill-Qwen-7B"
+dataset_path = "/home/ADV_2526a/evyataroren/inter_2025/datasets/datasets"
 model_config = ModelGenerationConfig(
     model_name="qwen-7B",
-    model_path="/home/ADV_2526a/evyataroren/inter_2025/models/DS-qwen-7B/DeepSeek-R1-Distill-Qwen-7B",
+    model_path=model_path,
     should_stop=SentenceEndStopCondition(),
     get_injection=SunWeightRedirectInjection(),
     global_stop=EOSTokenStopCondition(),
@@ -97,9 +102,10 @@ model_config = ModelGenerationConfig(
     dtype=torch.bfloat16
 )
 
+
 judge_config = JudgeGenerationConfig(
     judge_name="qwen-7B-judge",
-    judge_model_path="/home/ADV_2526a/evyataroren/inter_2025/models/DS-qwen-7B/DeepSeek-R1-Distill-Qwen-7B",
+    judge_model_path=judge_model_path,
     judge_prompt=MathEvaluatorJudgePrompt(),
     sampling_params=SamplingParams(
         temperature=0.0,
@@ -107,7 +113,6 @@ judge_config = JudgeGenerationConfig(
         top_p=None,
         take_dumb_max=True,
         max_new_tokens=1024,
-        
     ),
     dtype=torch.bfloat16
 )
@@ -116,33 +121,42 @@ dataset = aggregated_dataset_loader(
     datasets=[SimpleDatasetLoader],
     seed=42,
     strategy=aggregate_shuffle_strategy.SEQUENTIAL,
-    base_path="/home/ADV_2526a/evyataroren/inter_2025/datasets/datasets"
+    base_path=dataset_path
 )
 
 experiment = Experiment(
-    name="ds_simple,inject_EoSen,attention_capture_and_clip,inject_sun,with_judge",
+    name="ds_simple,inject_eoSen,attention_clip_0,inject_sunWeight",
+    runner_name="yonatan",
     dataset=dataset,
     model_generation_config=model_config,
     judge_generation_config=judge_config,
     seed=42,
-    activation_capturer=AttentionMapCapturer()
+    unique_id=os.environ.get("SLURM_ARRAY_JOB_ID", str(int(time()))) , 
+    activation_capturer=AttentionMapCapturerClipActivations(clip_max_val=1e-6)
 )
 
 print(f"   Populating datapoints from dataset...")
-experiment.populate_datapoints(num=50)
+experiment.populate_datapoints(num=100)
 for dp in experiment.datapoints:
     dp.should_capture_activations = True
 
 print(f"   Loaded {len(experiment.datapoints)} datapoints from dataset.")
 
 
-
 def run_generation():
     print("=" * 80)
     print(f"Starting Generation {experiment.name}")
     print("=" * 80)
-    
 
+    run = None
+    if JOB_ID == 0:
+        run = wandb.init(
+            entity="inter_2026",
+            project="Aha-moments",
+            name=experiment.name,
+            config=experiment_config_for_wandb(experiment,output_dir),
+        )
+        experiment.wandb_run_id = run.id if run is not None else None
 
     if JOB_ID == 0:
         print (f"\n1. Storing experiment metadata to {output_dir}...")
@@ -213,15 +227,14 @@ def run_generation():
     print("resaving datapoints with judge decisions...")
     experiment.store_datapoints_only(output_dir, start_index=0, end_index=len(experiment.datapoints), offset_relative_to_experiment=start,override=True)
     
-    # Verify activations were captured (before clearing)
+   # Verify activations were captured (before clearing)
     print("\n2a. Verifying captured activations...")
     total_activations = 0
     for dp_idx, dp in enumerate(experiment.datapoints):
         activation_types = [
-            ('activations_question', dp.activations_question),
-            ('activations_upto_injection', dp.activations_upto_injection),
-            ('activations_injection', dp.activations_injection),
-            ('activations_after_injection', dp.activations_after_injection),
+            (attr_name, getattr(dp, attr_name))
+            for attr_name in dir(dp)
+            if attr_name in {"activations_after_injection", "activations_injection", "activations_question", "activations_upto_injection"}
         ]
         
         print(f"\n   DataPoint {dp_idx} ({dp.question_id}):")
@@ -261,6 +274,7 @@ def run_generation():
             else:
                 print(f"      {activation_name}: None")
     
+    
 
 
     # Note: datapoints are saved incrementally during generation.
@@ -275,8 +289,11 @@ def run_generation():
     print("=" * 80)
     print(f"\nResults:")
     print(f"  - Total questions: {len(experiment.datapoints)}")
-    # TODO: make this a real count of judge answers...
-    # print(f"  - Correct answers: N/A (judge validation disabled)")
+    print(f"  - Correct answers (judge): {correct_count}/{total_judged} ({judge_correctness:.4f})")
     print(f"  - Total tokens with activations: {total_activations}")
+
+    if run is not None:
+        run.finish()
+
 if __name__ == "__main__":
     run_generation()

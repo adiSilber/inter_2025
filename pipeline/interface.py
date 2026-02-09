@@ -38,13 +38,16 @@ def get_unique_path(path: str) -> str:
 
 class ActivationCapturer(ABC):
     def __init__(self):
-        self.activations: Dict[str, List[torch.Tensor]] = {}
+        self.activations: Dict[str, List[Optional[torch.Tensor]]] = {}
+        self.model: Optional[torch.nn.Module] = None
+        self.generation_mode: Optional[list[GenerationMode]] = None
+        self.datapoints: Optional[list[DataPoint]] = None
 
     @abstractmethod
     def bind(self, model: torch.nn.Module):
         """Analyze the model and prepare hooks."""
         pass
-    def captured_activations(self) -> Dict[str, List[torch.Tensor]]:
+    def captured_activations(self) -> Dict[str, List[Optional[torch.Tensor]]]:
         return self.activations
     
     def clean_captured_activations(self): # we never remove the indices from the arrays as we rely on them for accessing the current positions in the generators. we only empty the tensors.
@@ -61,25 +64,28 @@ class ActivationCapturer(ABC):
         return self 
     
     def __enter__(self):
-        if self.model is None or self.generation_mode is None:
-            raise ValueError("you must get the context from 'capturer'")
+        if self.model is None or self.generation_mode is None or self.datapoints is None:
+            raise ValueError("you must get the context from '.capturer'")
         self.attach_hooks()
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.generation_mode = None
         self.remove_hooks()
+    
     @abstractmethod
-    def attach_hooks(self):
+    def attach_hooks(self) -> None:
         pass
+    
     @abstractmethod
-    def remove_hooks(self):
+    def remove_hooks(self) -> None:
         pass
 
 @dataclass
 class SamplingParams:
     temperature: float = 1.0
-    top_k: int = None
-    top_p: float = None
+    top_k: Optional[int] = None
+    top_p: Optional[float] = None
     take_dumb_max: bool = True
     max_new_tokens: int = 1000
 
@@ -139,10 +145,10 @@ class DataPoint:
     should_capture_activations: bool = False
 
 
-    activations_question: Optional[Dict[str, List[torch.Tensor]]] = None
-    activations_upto_injection: Optional[Dict[str, List[torch.Tensor]]] = None
-    activations_injection: Optional[Dict[str, List[torch.Tensor]]] = None
-    activations_after_injection: Optional[Dict[str, List[torch.Tensor]]] = None
+    activations_question: Optional[dict[str, List[Optional[torch.Tensor]]]] = None
+    activations_upto_injection: Optional[dict[str, List[Optional[torch.Tensor]]]] = None
+    activations_injection: Optional[dict[str, List[Optional[torch.Tensor]]]] = None
+    activations_after_injection: Optional[dict[str, List[Optional[torch.Tensor]]]] = None
 
 @dataclass
 class ModelGenerationConfig:
@@ -168,7 +174,7 @@ class Experiment:
     name:str
     dataset: aggregated_dataset_loader
     model_generation_config: ModelGenerationConfig
-    judge_generation_config: JudgeGenerationConfig
+    judge_generation_config: Optional[JudgeGenerationConfig] = None
     datapoints: list[DataPoint] = field(default_factory=list)  # List of indices of datapoints to use from the dataset
     seed: int = 42
     activation_capturer: Optional[ActivationCapturer] = None
@@ -265,7 +271,7 @@ class Experiment:
         
         # Ensure the list is large enough to handle the slice assignment
         if len(self.datapoints) < end:
-            self.datapoints.extend([None] * (end - len(self.datapoints)))
+            self.datapoints.extend([None] * (end - len(self.datapoints))) # type: ignore
         self.datapoints[start:end] = datapoints
 
     @classmethod
