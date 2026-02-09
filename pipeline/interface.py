@@ -19,7 +19,7 @@ class JudgeDecision(Enum):
 
 class GenerationMode(Enum):
     QUESTION_PREFILL = "question"   
-    INJECTION_PREFILL = "injection"
+    INJECTION = "injection"
     UPTO_INJECTION = "injection"
     AFTER_INJECTION = "after_injection" 
 
@@ -55,8 +55,8 @@ class ActivationCapturer(ABC):
     def kill_activations_array_reset_index(self):
         for key in self.activations:
             self.activations[key] = []
-    def capturer(self, mode: GenerationMode, datapoints: list[DataPoint], **kwargs) -> ActivationCapturer:
-        self.generation_mode = mode
+    def capturer(self, modes: list[GenerationMode], datapoints: list[DataPoint], **kwargs) -> ActivationCapturer:
+        self.generation_mode = modes
         self.datapoints = datapoints
         return self 
     
@@ -113,7 +113,7 @@ class DataPoint:
     
 
     injection:str = ""
-    injection_tokenized: list[str] = field(default_factory=list)  # The injection text as a list of tokens
+    injection_tokens: list[str] = field(default_factory=list)  # The injection text as a list of tokens
 
 
     upto_injection_tokens: list[str] = field(default_factory=list) # Substring of model_response up to the injection point

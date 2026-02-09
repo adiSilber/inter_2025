@@ -14,3 +14,7 @@ comm
 .artifacts_old
 .cache
 .artifacts_old2
+wandb
+
+
+experiments

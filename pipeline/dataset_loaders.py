@@ -1,3 +1,4 @@
+from enum import Enum
 import os
 import random
 import json
@@ -180,7 +181,7 @@ class SimpleDatasetLoader(dataset_loader):
                         misc_specific_misc={}
                     ))
 
-class aggregate_shuffle_strategy:
+class aggregate_shuffle_strategy(Enum):
     SEQUENTIAL = 0
     RANDOM = 1
     ROUND_ROBIN = 2
