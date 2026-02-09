@@ -1,8 +1,11 @@
+from sklearn.calibration import partial
 import torch
 from torch import nn
 from transformers import LlamaModel
-from pipeline.interface import ActivationCapturer, DataPoint, GenerationMode
-from typing import Optional
+from pipeline.interface import ActivationCapturer, DataPoint, Experiment, GenerationMode
+from typing import Optional,Any
+from transformer_lens import HookedTransformer
+from jaxtyping import Float, Int
 
 class AttentionMapCapturerClipActivations(ActivationCapturer):
     """Captures attention maps and can intervene by clipping attention to question tokens."""
@@ -36,7 +39,7 @@ class AttentionMapCapturerClipActivations(ActivationCapturer):
     # def capturer(self, mode, datapoints: list[DataPoint], **kwargs):
     #     return super().capturer(mode, datapoints)
 
-    def bind(self, model: torch.nn.Module):
+    def bind(self, model: torch.nn.Module,**kwargs):
         """Analyze the model and prepare to capture attention maps."""
         if hasattr(model, "model") and hasattr(model.model, "layers"):
             self.layers = model.model.layers  # type: ignore
