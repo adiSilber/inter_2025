@@ -64,13 +64,14 @@ class ActivationCapturer(ABC):
         return self 
     
     def __enter__(self):
-        if self.model is None or self.generation_mode is None or self.datapoints is None:
+        if self.generation_mode is None or self.datapoints is None:
             raise ValueError("you must get the context from '.capturer'")
         self.attach_hooks()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.generation_mode = None
+        self.datapoints = None  
         self.remove_hooks()
     
     @abstractmethod

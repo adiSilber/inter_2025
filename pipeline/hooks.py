@@ -2,10 +2,8 @@
 
 import torch
 from torch import nn
-from transformers import Any, LlamaModel
+from transformers import LlamaModel
 from pipeline.interface import ActivationCapturer, DataPoint, GenerationMode
-
-
 class AttentionMapCapturerClipActivations(ActivationCapturer):
     """Captures attention maps and can intervene by clipping attention to question tokens."""
     
@@ -44,6 +42,7 @@ class AttentionMapCapturerClipActivations(ActivationCapturer):
         try:
             if hasattr(model, 'config'):
                 setattr(model.config, 'attn_implementation', 'eager')
+                setattr(model.config, '_attn_implementation', 'eager')
         except Exception:
             pass
     
