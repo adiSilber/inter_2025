@@ -194,6 +194,9 @@ class Experiment:
     runner_name: str = "unknown"
     wandb_run_id: Optional[str] = None  # Set by job 0 for log_wandb_judge_overall to resume and log overall metrics
     unique_id: Optional[str] = None  # 8-digit id for experiment/datapoint filenames; set by runner so all array jobs share it
+
+    activation_head_clipping : Optional[dict[int,list[int]]] = None
+    clip_max_val: float = 1e-6
     
     def populate_datapoints(self,num:Optional[int]=None):
         count = 0
