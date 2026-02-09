@@ -109,6 +109,8 @@ class DontStop(ShouldStop):
         return False
 
 class ModelPromptTemplate(ABC):
+    prompt_tokens_before_content: int
+    prompt_tokens_after_content: int
     @abstractmethod
     def format(self, question: str) -> str:
         raise NotImplementedError

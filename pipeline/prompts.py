@@ -3,6 +3,8 @@ from pipeline.interface import ModelPromptTemplate
 from pipeline.interface import JudgePromptTemplate
 
 class ShortAnswerPromptTemplate(ModelPromptTemplate):
+    prompt_tokens_before_content = 7
+    prompt_tokens_after_content = 3
     """Format question with instruction to answer shortly."""
     def format(self, question: str) -> str:
         return f'<｜begin▁of▁sentence｜>Answer the question in short<｜User｜>{question}<｜Assistant｜><think>\n'
