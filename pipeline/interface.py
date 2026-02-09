@@ -166,6 +166,9 @@ class Experiment:
     datapoints: list[DataPoint] = field(default_factory=list)  # List of indices of datapoints to use from the dataset
     seed: int = 42
     activation_capturer: Optional[ActivationCapturer] = None
+    runner_name: str = "unknown"
+    wandb_run_id: Optional[str] = None  # Set by job 0 for log_wandb_judge_overall to resume and log overall metrics
+    unique_id: Optional[str] = None  # 8-digit id for experiment/datapoint filenames; set by runner so all array jobs share it
     
     def populate_datapoints(self,num:Optional[int]=None):
         count = 0
@@ -188,7 +191,10 @@ class Experiment:
     def store(self, save_dir:str,filename: Optional[str]=None, without_datapoints: bool = True,override: bool = False):
         os.makedirs(save_dir, exist_ok=True)
         if filename is None:
-            filename = f"{self.name.replace(' ', '_')}_experiment.pkl"
+            base = f"{self.name.replace(' ', '_')}"
+            if self.unique_id:
+                base = f"{self.unique_id}_{base}"
+            filename = f"{base}_experiment.pkl"
         filename = sanitize_filename(filename)
 
         save_path = os.path.join(save_dir, filename)
@@ -216,7 +222,10 @@ class Experiment:
         if end_index is None:
             end_index = len(self.datapoints)
         if filename is None:
-            filename = f"{self.name.replace(' ', '_')}_datapoints__{start_index+offset_relative_to_experiment}_{end_index+offset_relative_to_experiment}.pkl"
+            base = f"{self.name.replace(' ', '_')}"
+            if self.unique_id:
+                base = f"{self.unique_id}_{base}"
+            filename = f"{base}_datapoints__{start_index+offset_relative_to_experiment}_{end_index+offset_relative_to_experiment}.pkl"
         filename = sanitize_filename(filename)
 
         save_path = os.path.join(save_dir, filename)

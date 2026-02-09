@@ -60,6 +60,7 @@ sentencepiece
 tokenizers
 tqdm
 transformers
+wandb
 triton
 typing-inspection
 typing_extensions
