@@ -215,48 +215,47 @@ class AttentionMapCapturer(ActivationCapturer):
         self.hooks = []
 
 
-class BatchedAttentionMapCapturer(ActivationCapturer):
-    
-    def __init__(self):
+
+class AttentionHeadClipper(ActivationCapturer):
+
+    def __init__(self,heads:Optional[list[Optional[int]]]=None,clip_max_val=1e-6):
         super().__init__()
         self.hooks = []
-        self.layers : nn.ModuleList
-    
+        self.layers: nn.ModuleList
+        self.heads_to_clip = heads
+        self.clip_max_val = clip_max_val
+
     def bind(self, model: torch.nn.Module):
-        """Analyze the model and prepare to capture attention maps."""
-        
-        # Find all layers with attention modules
-        # For transformers, typically model.layers[i].self_attn or similar
-        if hasattr(model, 'model') and hasattr(model.model, 'layers'):
+        if hasattr(model, "model") and hasattr(model.model, "layers"):
             self.layers = model.model.layers  # type: ignore
-        elif hasattr(model, 'layers'):
+        elif hasattr(model, "layers"):
             self.layers = model.layers  # type: ignore
         else:
             raise ValueError("Could not find model layers for attention capture")
-        
+
         # Initialize activation storage for each layer
         for layer_idx in range(len(self.layers)):
             layer_name = f"layer_{layer_idx}_attention"
             self.activations[layer_name] = []
         # Ensure model forwards return attentions by default when possible.
         try:
-            if hasattr(model, 'config'):
+            if hasattr(model, "config"):
                 # Prefer to enable attention outputs so hooks can see weights.
-                # setattr(model.config, 'output_attentions', True)
+                # setattr(self.model.config, 'output_attentions', True)
                 # Some implementations expose an attn implementation flag; prefer eager.
                 try:
-                    setattr(model.config, 'attn_implementation', 'eager')
+                    setattr(model.config, "attn_implementation", "eager")
                 except Exception:
                     pass
         except Exception:
             pass
-    
+    def capturer(self, modes: list[GenerationMode], datapoints: list[DataPoint], **kwargs) -> ActivationCapturer:
+        return super().capturer(modes, datapoints, **kwargs)
     def attach_hooks(self) -> None:
         """Register hooks to capture attention outputs."""
         if self.layers is None:
             raise ValueError("Must call bind() before using context manager")
 
-        
         def make_hook(layer_idx):
             def hook(module, input, output):
                 # Qwen/DeepSeek attention modules typically return a tuple where
@@ -285,20 +284,20 @@ class BatchedAttentionMapCapturer(ActivationCapturer):
                 self.activations[f"layer_{layer_idx}_attention"].append(cpu_attn)
 
             return hook
-        
+
         # Register hooks on attention modules
         for layer_idx, layer in enumerate(self.layers):
             # Different model architectures use different names
-            if hasattr(layer, 'self_attn'):
+            if hasattr(layer, "self_attn"):
                 attn_module = layer.self_attn
-            elif hasattr(layer, 'attention'):
+            elif hasattr(layer, "attention"):
                 attn_module = layer.attention
             else:
                 continue
-            
+
             hook_handle = attn_module.register_forward_hook(make_hook(layer_idx))  # type: ignore
             self.hooks.append(hook_handle)
-    
+
     def remove_hooks(self) -> None:
         """Remove hooks after capture."""
         for hook in self.hooks:
