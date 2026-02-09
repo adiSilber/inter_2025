@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 import torch
 import dill
 from pathvalidate import sanitize_filename
+import gc
 
 if TYPE_CHECKING:
     from dataset_loaders import aggregated_dataset_loader
@@ -51,9 +52,18 @@ class ActivationCapturer(ABC):
         return self.activations
     
     def clean_captured_activations(self): # we never remove the indices from the arrays as we rely on them for accessing the current positions in the generators. we only empty the tensors.
+        if torch.cuda.is_available():
+            print("   Memory in use before cleaning activations arrays:", torch.cuda.memory_allocated() / 1e9, "GB")
+        else:
+            print("   Clearing activations arrays... (CUDA not available, so can't report memory usage)")
         for arr in self.activations.values():
             for i in range(len(arr)):
                 arr[i] = None
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+        print("   Memory in use after cleaning activations arrays:", torch.cuda.memory_allocated() / 1e9, "GB")
 
     def kill_activations_array_reset_index(self):
         for key in self.activations:
@@ -228,7 +238,26 @@ class Experiment:
         finally:
             if without_datapoints:
                 self.datapoints = temp_datapoints
-            
+
+    def datapoints_to_cpu(self):
+        if torch.cuda.is_available():
+            print("moving activations to CPU, memory in use before moving activations to CPU:", torch.cuda.memory_allocated() / 1e9, "GB")
+        else:
+            print("moving activations to CPU... (CUDA not available, so can't report memory usage)")
+        for datapoint in self.datapoints:
+            if datapoint.activations_question is not None:
+                datapoint.activations_question = {k: [t.cpu() if t is not None else None for t in v] for k, v in datapoint.activations_question.items()}
+            if datapoint.activations_upto_injection is not None:
+                datapoint.activations_upto_injection = {k: [t.cpu() if t is not None else None for t in v] for k, v in datapoint.activations_upto_injection.items()}
+            if datapoint.activations_injection is not None:
+                datapoint.activations_injection = {k: [t.cpu() if t is not None else None for t in v] for k, v in datapoint.activations_injection.items()}
+            if datapoint.activations_after_injection is not None:
+                datapoint.activations_after_injection = {k: [t.cpu() if t is not None else None for t in v] for k, v in datapoint.activations_after_injection.items()}
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+        print("   Memory in use after moving activations to CPU and cleaning activations arrays:", torch.cuda.memory_allocated() / 1e9, "GB")
 
     def store_datapoints_only(self,save_dir, filename: Optional[str]=None,start_index:int=0,end_index:Optional[int]=None,offset_relative_to_experiment=0,override: bool = False):
         os.makedirs(save_dir, exist_ok=True)
