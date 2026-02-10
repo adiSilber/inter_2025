@@ -244,12 +244,21 @@ class Experiment:
             if without_datapoints:
                 self.datapoints = temp_datapoints
 
-    def datapoints_to_cpu(self):
+    def datapoints_to_cpu(self,start_index:int=0,end_index:Optional[int]=None):
+        if end_index is None:
+            end_index = len(self.datapoints)
         if torch.cuda.is_available():
             print("moving activations to CPU, memory in use before moving activations to CPU:", torch.cuda.memory_allocated() / 1e9, "GB")
         else:
             print("moving activations to CPU... (CUDA not available, so can't report memory usage)")
-        for datapoint in self.datapoints:
+        Experiment._datapoints_to_cpu(self.datapoints, start_index, end_index)
+        print("   Memory in use after moving activations to CPU and cleaning activations arrays:", torch.cuda.memory_allocated() / 1e9, "GB")
+    
+    @classmethod
+    def _datapoints_to_cpu(cls, datapoints: list[DataPoint], start_index: int = 0, end_index: Optional[int] = None):
+        if end_index is None:
+            end_index = len(datapoints)
+        for datapoint in datapoints[start_index:end_index]:
             if datapoint.activations_question is not None:
                 datapoint.activations_question = {k: [t.cpu() if t is not None else None for t in v] for k, v in datapoint.activations_question.items()}
             if datapoint.activations_upto_injection is not None:
@@ -262,7 +271,6 @@ class Experiment:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
             torch.cuda.synchronize()
-        print("   Memory in use after moving activations to CPU and cleaning activations arrays:", torch.cuda.memory_allocated() / 1e9, "GB")
 
     def store_datapoints_only(self,save_dir, filename: Optional[str]=None,start_index:int=0,end_index:Optional[int]=None,offset_relative_to_experiment=0,override: bool = False):
         os.makedirs(save_dir, exist_ok=True)
@@ -281,10 +289,9 @@ class Experiment:
         else:
             save_path = get_unique_path(save_path)
 
-
         try:
             with open(save_path, "wb") as f:
-                dill.dump((self.datapoints[start_index:end_index],start_index+offset_relative_to_experiment,end_index+offset_relative_to_experiment), f)
+                dill.dump((self.datapoints[start_index:end_index],start_index+offset_relative_to_experiment,end_index+offset_relative_to_experiment), f) 
         finally:
            pass
     def clear_activations(self,start_index,end_index):
