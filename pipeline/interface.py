@@ -158,10 +158,10 @@ class DataPoint:
     should_capture_activations: bool = False
 
 
-    activations_question: Optional[dict[str, List[Optional[torch.Tensor]]]] = None
-    activations_upto_injection: Optional[dict[str, List[Optional[torch.Tensor]]]] = None
-    activations_injection: Optional[dict[str, List[Optional[torch.Tensor]]]] = None
-    activations_after_injection: Optional[dict[str, List[Optional[torch.Tensor]]]] = None
+    activations_question: dict[str, List[Optional[torch.Tensor]]] = field(default_factory=dict) 
+    activations_upto_injection: dict[str, List[Optional[torch.Tensor]]] = field(default_factory=dict) 
+    activations_injection: dict[str, List[Optional[torch.Tensor]]] = field(default_factory=dict) 
+    activations_after_injection: dict[str, List[Optional[torch.Tensor]]] = field(default_factory=dict) 
 
 @dataclass
 class ModelGenerationConfig:
@@ -289,10 +289,10 @@ class Experiment:
            pass
     def clear_activations(self,start_index,end_index):
         for datapoint in self.datapoints[start_index:end_index]:
-            datapoint.activations_question = None
-            datapoint.activations_upto_injection = None
-            datapoint.activations_injection = None
-            datapoint.activations_after_injection = None
+            datapoint.activations_question = {}
+            datapoint.activations_upto_injection = {}
+            datapoint.activations_injection = {}
+            datapoint.activations_after_injection = {}
     def load_datapoints(self, filepath: str):
         with open(filepath, "rb") as f:
             data = dill.load(f)
