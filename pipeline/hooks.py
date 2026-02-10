@@ -5,8 +5,7 @@ from transformers import LlamaModel
 from pipeline.interface import ActivationCapturer, DataPoint, Experiment, GenerationMode
 from typing import Optional,Any
 from transformer_lens import HookedTransformer
-from jaxtyping import Float, Int
-
+from transformer_lens.hook_points import HookPoint
 class AttentionMapCapturerClipActivations(ActivationCapturer):
     """Captures attention maps and can intervene by clipping attention to question tokens."""
 
@@ -218,195 +217,84 @@ class AttentionMapCapturer(ActivationCapturer):
         self.hooks = []
 
 
-
 class AttentionHeadClipper(ActivationCapturer):
 
-    def __init__(self,heads:Optional[list[Optional[int]]]=None,clip_max_val=1e-6):
-        super().__init__()
-        self.hooks = []
-        self.layers: nn.ModuleList
-        self.heads_to_clip = heads
-        self.clip_max_val = clip_max_val
+    def __init__(
+        self,
+    ):
+        self.hooks_handles = []
+        self.current_modes = []
+        self.model: Optional[HookedTransformer] = None # type: ignore
 
-    def bind(self, model: torch.nn.Module):
-        if hasattr(model, "model") and hasattr(model.model, "layers"):
-            self.layers = model.model.layers  # type: ignore
-        elif hasattr(model, "layers"):
-            self.layers = model.layers  # type: ignore
-        else:
-            raise ValueError("Could not find model layers for attention capture")
+    def bind(self, model: torch.nn.Module,**kwargs):
+        if not isinstance(model, HookedTransformer):
+            raise ValueError(
+                "AttentionHeadClipper requires a TransformerLens 'HookedTransformer'. "
+                "Standard HF models mask the internal attention pattern."
+            )
+        if not "experiment" in kwargs:
+            raise ValueError("Experiment config must be passed to AttentionMapCapturer via bind() kwargs")
+        self.experiment: Experiment = kwargs["experiment"]
+        self.clip_max_val = self.experiment.clip_max_val
+        self.heads_to_clip = self.experiment.activation_head_clipping if self.experiment.activation_head_clipping is not None else {} 
+        super().bind(model,**kwargs)
 
-        # Initialize activation storage for each layer
-        for layer_idx in range(len(self.layers)):
-            layer_name = f"layer_{layer_idx}_attention"
-            self.activations[layer_name] = []
-        # Ensure model forwards return attentions by default when possible.
-        try:
-            if hasattr(model, "config"):
-                # Prefer to enable attention outputs so hooks can see weights.
-                # setattr(self.model.config, 'output_attentions', True)
-                # Some implementations expose an attn implementation flag; prefer eager.
-                try:
-                    setattr(model.config, "attn_implementation", "eager")
-                except Exception:
-                    pass
-        except Exception:
-            pass
-    def capturer(self, modes: list[GenerationMode], datapoints: list[DataPoint], **kwargs) -> ActivationCapturer:
+    def capturer(self, modes: list[GenerationMode], datapoints: list[Any], **kwargs):
+        self.current_num_pad_tokens = kwargs.get("num_pad_tokens", [])
         return super().capturer(modes, datapoints, **kwargs)
+
+    def question_indecies_to_clip(self, datapoint: DataPoint, num_pad_tokens: int) -> list[int]:
+        start = self.experiment.model_generation_config.question_prompt_template.prompt_tokens_before_content
+        end = len(datapoint.question_formatted_contents_tokenized)-self.experiment.model_generation_config.question_prompt_template.prompt_tokens_after_content
+        start += num_pad_tokens
+        end += num_pad_tokens
+        return list(range(start, end))
     def attach_hooks(self) -> None:
-        """Register hooks to capture attention outputs."""
-        if self.layers is None:
+        if self.datapoints is None or self.current_modes is None:
+            raise ValueError("Must have datapoints and modes set before attaching hooks")
+        def _clipping_hook_fn(tensor, hook:HookPoint, head_indices : list[int], max_val, datapoints:list[DataPoint], modes:list[GenerationMode],pads:list[int]):
+            for dp_index, dp in enumerate(datapoints):
+                
+                
+                target_dict = {}
+                if dp.should_capture_activations:
+                    if modes[dp_index] == GenerationMode.UPTO_INJECTION:
+                        target_dict = dp.activations_upto_injection
+                    elif modes[dp_index] == GenerationMode.INJECTION:
+                        target_dict = dp.activations_injection
+                    elif modes[dp_index] == GenerationMode.AFTER_INJECTION:
+                        target_dict = dp.activations_after_injection
+
+                    target_dict[f"layer_{hook.layer}_attention"].append(tensor[dp_index, :, 0, :].detach().cpu()) # shape (batch,heads,query,key) and we only have one query
+
+
+                if modes[dp_index] != GenerationMode.AFTER_INJECTION and modes[dp_index] != GenerationMode.UPTO_INJECTION:
+                    continue
+                token_indecies = self.question_indecies_to_clip(dp, pads[dp_index])
+                tensor[dp_index, head_indices, :, token_indecies] = torch.clamp(
+                    tensor[dp_index, head_indices, :, token_indecies],
+                    max=max_val,
+                )
+
+                if dp.should_capture_activations and len(head_indices) > 0:
+                    target_dict[f"layer_{hook.layer}_attention_clipped"].append(tensor[dp_index, :, 0, :].detach().cpu()) 
+            
+            return tensor
+    
+        if self.model is None:
             raise ValueError("Must call bind() before using context manager")
 
-        def make_hook(layer_idx):
-            def hook(module, input, output):
-                # Qwen/DeepSeek attention modules typically return a tuple where
-                # output[1] are the attention weights when `output_attentions=True`.
-                attention_weights = None
-                if isinstance(output, tuple) and len(output) > 1:
-                    attention_weights = output[1]
-
-                # If weights are missing, raise instructive error so caller can
-                # ensure `output_attentions=True` or that model config was set.
-                if attention_weights is None:
-                    raise ValueError(
-                        f"Layer {layer_idx}: attention weights are None. "
-                        "Ensure the model is called with `output_attentions=True` "
-                        "or set `model.config.output_attentions = True` and use an "
-                        "attn implementation that exposes weights (e.g. 'eager')."
-                    )
-
-                # Offload to CPU and detach to save GPU memory and break graph
-                try:
-                    cpu_attn = attention_weights.detach().cpu()
-                except Exception:
-                    # If not a tensor, store as-is
-                    cpu_attn = attention_weights
-
-                self.activations[f"layer_{layer_idx}_attention"].append(cpu_attn)
-
-            return hook
-
-        # Register hooks on attention modules
-        for layer_idx, layer in enumerate(self.layers):
-            # Different model architectures use different names
-            if hasattr(layer, "self_attn"):
-                attn_module = layer.self_attn
-            elif hasattr(layer, "attention"):
-                attn_module = layer.attention
-            else:
-                continue
-
-            hook_handle = attn_module.register_forward_hook(make_hook(layer_idx))  # type: ignore
-            self.hooks.append(hook_handle)
+        for layer_idx in range(self.model.cfg.n_layers):
+            hook_name = f"blocks.{layer_idx}.attn.hook_pattern"
+            hook = partial(_clipping_hook_fn, head_indices=self.heads_to_clip.get(layer_idx, []), max_val=self.clip_max_val,datapoints=self.datapoints, modes=self.current_modes, pads=self.current_num_pad_tokens)
+            self.model.add_hook(hook_name, hook)
 
     def remove_hooks(self) -> None:
-        """Remove hooks after capture."""
-        for hook in self.hooks:
-            hook.remove()
-        self.hooks = []
+        if self.model:
+            self.model.remove_all_hook_fns(including_permanent=False)
 
 
-# class OLDAttentionMapCapturerClipActivations(ActivationCapturer):
-#     """Captures attention maps and can intervene by clipping attention to question tokens."""
 
-#     def __init__(self):
-#         super().__init__()
-#         self.hooks = []
-#         self.layers: nn.ModuleList
-#         # self._v_cache = {}  # Store V tensors per layer
 
-#     def capturer(self, modes: list[GenerationMode], datapoints: list[DataPoint], question_to_clip_indecies: list[int]=[], **kwargs):
-#         # Yonatan: I returned this function to keep the code open for chanegs, if needed, config correctly outside
-#         # This wat we also don't break the interface with the parent class
-#         self.question_to_clip_indecies = question_to_clip_indecies
-#         return super().capturer(modes, datapoints, **kwargs)
 
-#     # def capturer(self, mode, datapoints: list[DataPoint], **kwargs):
-#     #     return super().capturer(mode, datapoints)
 
-#     def bind(self, model: torch.nn.Module):
-#         """Analyze the model and prepare to capture attention maps."""
-
-#         if hasattr(model, 'model') and hasattr(model.model, 'layers'):
-#             self.layers = model.model.layers #
-#         elif hasattr(model, 'layers'):
-#             self.layers = model.layers
-#         else:
-#             raise ValueError("Could not find model layers for attention capture")
-
-#         # Initialize activation storage for each layer
-#         for layer_idx in range(len(self.layers)):
-#             self.activations[f"layer_{layer_idx}_attention"] = []
-#             self.activations[f"layer_{layer_idx}_attention_clipped"] = []
-
-#         try:
-#             if hasattr(model, 'config'):
-#                 setattr(model.config, 'attn_implementation', 'eager')
-#         except Exception:
-#             pass
-
-#     def attach_hooks(self) -> None:
-#         """Register hooks to capture V and attention, then intervene."""
-#         if self.layers is None:
-#             raise ValueError("Must call bind() before using context manager")
-
-#         def make_hook(layer_idx):
-#             def hook(module, input, output):
-#                 # Qwen/DeepSeek attention modules typically return a tuple where
-#                 # output[1] are the attention weights when `output_attentions=True`.
-#                 attention_weights = None
-#                 if isinstance(output, tuple) and len(output) > 1:
-#                     attention_weights = output[1]
-
-#                 # If weights are missing, raise instructive error so caller can
-#                 # ensure `output_attentions=True` or that model config was set.
-#                 if attention_weights is None:
-#                     raise ValueError(
-#                         f"Layer {layer_idx}: attention weights are None. "
-#                         "Ensure the model is called with `output_attentions=True` "
-#                         "or set `model.config.output_attentions = True` and use an "
-#                         "attn implementation that exposes weights (e.g. 'eager')."
-#                     )
-
-#                 # Offload to CPU and detach to save GPU memory and break graph
-#                 try:
-#                     cpu_attn = attention_weights.detach().cpu()
-#                 except Exception:
-#                     # If not a tensor, store as-is
-#                     cpu_attn = attention_weights
-
-#                 self.activations[f"layer_{layer_idx}_attention"].append(cpu_attn)
-#                 if self.generation_mode == [GenerationMode.AFTER_INJECTION]:
-#                     # question_indexes = range(len(self.datapoints[0].question_formatted_contents_tokenized))
-#                     for i in self.question_to_clip_indecies:
-#                         attention_weights[:, :, :, i] = torch.clamp(attention_weights[:, :, :, i], max=1e-4)
-#                     try:
-#                         clipped = attention_weights.detach().cpu()
-#                     except Exception:
-#                         # If not a tensor, store as-is
-#                         print("could not detach attention weights, saving unclipped weights")
-#                         clipped = attention_weights
-
-#                     self.activations[f"layer_{layer_idx}_attention_clipped"].append(clipped)
-
-#             return hook
-
-#         # Register hooks
-#         for layer_idx, layer in enumerate(self.layers):
-#             if hasattr(layer, 'self_attn'):
-#                 attn_module = layer.self_attn
-#             elif hasattr(layer, 'attention'):
-#                 attn_module = layer.attention
-#             else:
-#                 continue
-
-#             hook_handle = attn_module.register_forward_hook(make_hook(layer_idx))
-#             self.hooks.append(hook_handle)
-
-#     def remove_hooks(self) -> None:
-#         """Remove all hooks."""
-#         for hook in self.hooks:
-#             hook.remove()
-#         self.hooks = []
