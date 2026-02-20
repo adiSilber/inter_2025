@@ -474,6 +474,17 @@ def printdp(dp: DataPoint, i: int):
     print()
     print()
 
+
+def printdp_for_experiments_consecutive(experiment_list: list[Experiment], start_index: int = 0, end_index: int = None):
+    # assuming all experiments have the same amount of datapoints and that they were loaded into the experiment object
+    end_index = len(experiment_list) if end_index is None else end_index
+    for index in range(start_index, end_index):
+        for experiment in experiment_list:
+            printdp(experiment.datapoints[index], index)
+            print()
+            print()
+
+
 def summarize_datapoints(experiment: Experiment,indecies: Optional[slice|list[int]]=None) -> Any:
     if indecies is None:
         for i, dp in enumerate(experiment.datapoints):

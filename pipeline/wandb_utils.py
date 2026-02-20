@@ -57,6 +57,7 @@ def experiment_config_for_wandb(
         "dataset_loaders": [type(d).__name__ for d in dataset.loaders],
         "dataset_strategy": strategy_name,
         "dataset_seed": getattr(dataset, "seed", None),
+        "activation_head_clipping": str(experiment.activation_head_clipping),
     }
     if jc:
         config.update(
