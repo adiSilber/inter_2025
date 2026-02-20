@@ -8,6 +8,7 @@ import torch
 import dill
 from pathvalidate import sanitize_filename
 import gc
+from contextlib import contextmanager
 
 if TYPE_CHECKING:
     from dataset_loaders import aggregated_dataset_loader
@@ -21,7 +22,7 @@ class JudgeDecision(Enum):
 class GenerationMode(Enum):
     QUESTION_PREFILL = "question"   
     INJECTION = "injection"
-    UPTO_INJECTION = "injection"
+    UPTO_INJECTION = "upto_injection"
     AFTER_INJECTION = "after_injection" 
 
 def get_unique_path(path: str) -> str:
@@ -91,6 +92,57 @@ class ActivationCapturer(ABC):
     @abstractmethod
     def remove_hooks(self) -> None:
         pass
+
+
+class ActivationCapturerV2(ActivationCapturer):
+    """Generation-scoped activation capturer with hooks attached once per generation.
+    
+    Extends ActivationCapturer to support generation-level hook lifecycle where hooks
+    are attached once at the start of generation and removed at the end, rather than
+    per forward pass. Context data (datapoints, modes) is passed via context managers.
+    """
+    
+    def __init__(self):
+        super().__init__()
+        self._batch_context_store = {}
+        self._batch_context_keys = []
+        self._forward_context_store = {}
+
+    @abstractmethod
+    def unbind(self):
+        """Remove hooks after generation completes."""
+        pass
+    
+    @contextmanager
+    def generation_context(self, model: torch.nn.Module, **kwargs):
+        """Context manager for generation lifecycle - binds on enter, unbinds on exit."""
+        self.bind(model, **kwargs)
+        try:
+            yield self
+        finally:
+            self.unbind()
+    
+    @contextmanager
+    def set_batch_context(self, **kwargs):
+        """Set batch-level context (datapoints, num_pad_tokens, etc.) for the hooks."""
+        self._batch_context_keys = list(kwargs.keys())
+        self._batch_context_store.update(kwargs)
+        try:
+            yield
+        finally:
+            for k in self._batch_context_keys:
+                self._batch_context_store.pop(k, None)
+            self._batch_context_keys = []
+
+    @contextmanager
+    def set_forward_context(self, **kwargs):
+        """Set forward-pass context (modes, etc.) for the hooks."""
+        self._forward_context_store.update(kwargs)
+        try:
+            yield
+        finally:
+            for k in kwargs:
+                self._forward_context_store.pop(k, None)
 
 @dataclass
 class SamplingParams:
@@ -184,7 +236,7 @@ class JudgeGenerationConfig:
 
 @dataclass
 class Experiment:
-    name:str
+    name: str
     dataset: aggregated_dataset_loader
     model_generation_config: ModelGenerationConfig
     judge_generation_config: Optional[JudgeGenerationConfig] = None
@@ -259,13 +311,9 @@ class Experiment:
         if end_index is None:
             end_index = len(datapoints)
         for datapoint in datapoints[start_index:end_index]:
-            if datapoint.activations_question is not None:
                 datapoint.activations_question = {k: [t.cpu() if t is not None else None for t in v] for k, v in datapoint.activations_question.items()}
-            if datapoint.activations_upto_injection is not None:
                 datapoint.activations_upto_injection = {k: [t.cpu() if t is not None else None for t in v] for k, v in datapoint.activations_upto_injection.items()}
-            if datapoint.activations_injection is not None:
                 datapoint.activations_injection = {k: [t.cpu() if t is not None else None for t in v] for k, v in datapoint.activations_injection.items()}
-            if datapoint.activations_after_injection is not None:
                 datapoint.activations_after_injection = {k: [t.cpu() if t is not None else None for t in v] for k, v in datapoint.activations_after_injection.items()}
         gc.collect()
         if torch.cuda.is_available():
