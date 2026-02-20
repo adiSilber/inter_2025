@@ -296,7 +296,7 @@ class Experiment:
             if without_datapoints:
                 self.datapoints = temp_datapoints
 
-    def datapoints_to_cpu(self,start_index:int=0,end_index:Optional[int]=None):
+    def datapoints_to_cpu(self, start_index: int = 0, end_index: Optional[int] = None):
         if end_index is None:
             end_index = len(self.datapoints)
         if torch.cuda.is_available():

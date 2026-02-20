@@ -40,6 +40,7 @@ def experiment_config_for_wandb(
     config: Dict[str, Any] = {
         "experiment_name": experiment.name,
         "runner_name": experiment.runner_name,
+        "unique_id": experiment.unique_id,
         "seed": experiment.seed,
         "output_dir": output_dir,
         "num_datapoints": len(experiment.datapoints),
