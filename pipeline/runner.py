@@ -125,18 +125,18 @@ dataset = aggregated_dataset_loader(
 )
 
 experiment = Experiment(
-    name="ds_simple,inject_eoSen,attention_clip_0,inject_sunWeight",
-    runner_name="yonatan",
+    name="adisi_extreme_clip_1e-7_simple_sunweight_260216_v1",
+    runner_name="adisi",
     dataset=dataset,
     model_generation_config=model_config,
     judge_generation_config=judge_config,
     seed=42,
-    unique_id=os.environ.get("SLURM_ARRAY_JOB_ID", str(int(time()))) , 
-    activation_capturer=AttentionMapCapturerClipActivations(clip_max_val=1e-6)
+    unique_id=os.environ.get("SLURM_ARRAY_JOB_ID", str(int(time()))) ,
+    activation_capturer=AttentionMapCapturer()  # 10x more aggressive
 )
 
 print(f"   Populating datapoints from dataset...")
-experiment.populate_datapoints(num=100)
+experiment.populate_datapoints(num=10)  # Only 10 datapoints for testing
 for dp in experiment.datapoints:
     dp.should_capture_activations = True
 
@@ -145,7 +145,9 @@ print(f"   Loaded {len(experiment.datapoints)} datapoints from dataset.")
 
 def run_generation():
     print("=" * 80)
-    print(f"Starting Generation {experiment.name}")
+    print(f"Starting Generation: {experiment.name}")
+    print(f"Runner: {experiment.runner_name}")
+    print(f"Datapoints: {len(experiment.datapoints)}")
     print("=" * 80)
 
     run = None
@@ -201,16 +203,33 @@ def run_generation():
             saved_batches += 1
 
     print("   Generation complete!")
+
+    # Move activations from GPU to CPU before unloading model to free GPU memory
+    print("   Moving activations to CPU to free GPU memory...")
+    experiment.datapoints_to_cpu()
+
     # Unload model to free memory
     generator.unload_model()
-    
+    del generator  # Explicitly delete the generator object to release all references
+
     # Force garbage collection and clear CUDA cache before loading judge
     import gc
     gc.collect()
+    gc.collect()  # Run twice to catch cyclic references
     torch.cuda.empty_cache()
     torch.cuda.synchronize()
+
+    # Additional cleanup: reset peak memory stats and run another collection
+    torch.cuda.reset_peak_memory_stats()
+    gc.collect()
+    torch.cuda.empty_cache()
+
     print(f"   GPU memory after cleanup: {torch.cuda.memory_allocated() / 1e9:.2f} GB allocated, {torch.cuda.memory_reserved() / 1e9:.2f} GB reserved")
-    
+
+    # If still too much memory is allocated, there might be a leak - warn but continue
+    if torch.cuda.memory_allocated() > 1e9:  # More than 1GB still allocated
+        print(f"   WARNING: Still {torch.cuda.memory_allocated() / 1e9:.2f} GB allocated after cleanup!")
+
     print("\n3. Running judge validation...")
     judge = CorrectnessJudge(experiment, device='cuda')
     judge.run(batch_size=8)
@@ -219,14 +238,15 @@ def run_generation():
     print("\n4. Done generating judge decisions. datapoints populated")
 
     # Compute and log judge correctness overall score
-    total_judged = len(experiment.datapoints)
-    correct_count = sum(1 for dp in experiment.datapoints if dp.judge_decision == JudgeDecision.CORRECT)
-    judge_correctness = correct_count / total_judged if total_judged else 0.0
-    print(f"   Judge correctness: {correct_count}/{total_judged} = {judge_correctness:.4f}")
+    if judge_config is not None:
+        total_judged = len(experiment.datapoints)
+        correct_count = sum(1 for dp in experiment.datapoints if dp.judge_decision == JudgeDecision.CORRECT)
+        judge_correctness = correct_count / total_judged if total_judged else 0.0
+        print(f"   Judge correctness: {correct_count}/{total_judged} = {judge_correctness:.4f}")
 
-    print("resaving datapoints with judge decisions...")
-    experiment.store_datapoints_only(output_dir, start_index=0, end_index=len(experiment.datapoints), offset_relative_to_experiment=start,override=True)
-    
+        print("resaving datapoints with judge decisions...")
+        experiment.store_datapoints_only(output_dir, start_index=0, end_index=len(experiment.datapoints), offset_relative_to_experiment=start,override=True)
+        
    # Verify activations were captured (before clearing)
     print("\n2a. Verifying captured activations...")
     total_activations = 0
@@ -288,8 +308,10 @@ def run_generation():
     print("Experiment Complete!")
     print("=" * 80)
     print(f"\nResults:")
+    print(f"  - Runner: {experiment.runner_name}")
     print(f"  - Total questions: {len(experiment.datapoints)}")
-    print(f"  - Correct answers (judge): {correct_count}/{total_judged} ({judge_correctness:.4f})")
+    if judge_config is not None:
+        print(f"  - Correct answers (judge): {correct_count}/{total_judged} ({judge_correctness:.4f})") # type: ignore
     print(f"  - Total tokens with activations: {total_activations}")
 
     if run is not None:

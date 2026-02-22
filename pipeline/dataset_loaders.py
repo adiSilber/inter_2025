@@ -183,6 +183,21 @@ class SimpleDatasetLoader(dataset_loader):
                         misc_specific_misc={}
                     ))
 
+class OneSolutionSimpleLoader(dataset_loader):
+    """Loader for simple questions with single definitive answers."""
+    def _load_data(self):
+        path = os.path.join(self.base_path, "one_solution_simple", "one_solution_simple.json")
+        if os.path.exists(path):
+            with open(path, 'r') as f:
+                content = json.load(f)
+                for idx, item in enumerate(content.get('data', [])):
+                    self.data.append(question_item(
+                        q=item['question'],
+                        a=item['answer'],
+                        question_id=f"one_sol_simple_{idx}",
+                        misc_specific_misc={}
+                    ))
+
 class aggregate_shuffle_strategy(Enum):
     SEQUENTIAL = 0
     RANDOM = 1

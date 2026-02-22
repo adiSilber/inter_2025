@@ -6,7 +6,16 @@ from typing import List, Optional, Dict, Any, TYPE_CHECKING
 from abc import ABC, abstractmethod
 import torch
 import dill
+import io
 from pathvalidate import sanitize_filename
+
+
+class CPUUnpickler(dill.Unpickler):
+    """Unpickler that forces all torch tensors to load on CPU."""
+    def find_class(self, module, name):
+        if module == 'torch.storage' and name == '_load_from_bytes':
+            return lambda b: torch.load(io.BytesIO(b), map_location='cpu', weights_only=False)
+        return super().find_class(module, name)
 import gc
 from contextlib import contextmanager
 
@@ -14,8 +23,8 @@ if TYPE_CHECKING:
     from dataset_loaders import aggregated_dataset_loader
 
 class JudgeDecision(Enum):
-    CORRECT = 'correct'
     INCORRECT = 'incorrect'
+    CORRECT = 'correct'
     NO_ANSWER = 'no_answer'
     IRRELEVANT = 'irrelevant'
 
@@ -117,9 +126,11 @@ class ActivationCapturerV2(ActivationCapturer):
     def generation_context(self, model: torch.nn.Module, **kwargs):
         """Context manager for generation lifecycle - binds on enter, unbinds on exit."""
         self.bind(model, **kwargs)
+        print("called bind")
         try:
             yield self
         finally:
+            print("called unbind")
             self.unbind()
     
     @contextmanager
@@ -209,7 +220,7 @@ class DataPoint:
     
     should_capture_activations: bool = False
 
-
+    pad_length: int = 0
     activations_question: dict[str, List[Optional[torch.Tensor]]] = field(default_factory=dict) 
     activations_upto_injection: dict[str, List[Optional[torch.Tensor]]] = field(default_factory=dict) 
     activations_injection: dict[str, List[Optional[torch.Tensor]]] = field(default_factory=dict) 
@@ -310,17 +321,33 @@ class Experiment:
     def _datapoints_to_cpu(cls, datapoints: list[DataPoint], start_index: int = 0, end_index: Optional[int] = None):
         if end_index is None:
             end_index = len(datapoints)
+        activation_attrs = (
+            "activations_question",
+            "activations_upto_injection",
+            "activations_injection",
+            "activations_after_injection",
+        )
         for datapoint in datapoints[start_index:end_index]:
-                datapoint.activations_question = {k: [t.cpu() if t is not None else None for t in v] for k, v in datapoint.activations_question.items()}
-                datapoint.activations_upto_injection = {k: [t.cpu() if t is not None else None for t in v] for k, v in datapoint.activations_upto_injection.items()}
-                datapoint.activations_injection = {k: [t.cpu() if t is not None else None for t in v] for k, v in datapoint.activations_injection.items()}
-                datapoint.activations_after_injection = {k: [t.cpu() if t is not None else None for t in v] for k, v in datapoint.activations_after_injection.items()}
+            for attr in activation_attrs:
+                activation_dict = getattr(datapoint, attr)
+                cpu_activation_dict = {k: [t.cpu() if t is not None else None for t in v] for k, v in activation_dict.items()}
+                for k, v in cpu_activation_dict.items():
+                    for i in range(len(v)):
+                        v[i] = None
+                del activation_dict
+                setattr(
+                    datapoint,
+                    attr,
+                    cpu_activation_dict,
+                )
         gc.collect()
         if torch.cuda.is_available():
+            print("emptying CUDA cache...")
             torch.cuda.empty_cache()
             torch.cuda.synchronize()
+        gc.collect()
 
-    def store_datapoints_only(self,save_dir, filename: Optional[str]=None,start_index:int=0,end_index:Optional[int]=None,offset_relative_to_experiment=0,override: bool = False):
+    def store_datapoints_only(self, save_dir, filename: Optional[str]=None,start_index:int=0, end_index:Optional[int]=None,offset_relative_to_experiment=0,override: bool = False):
         os.makedirs(save_dir, exist_ok=True)
         if end_index is None:
             end_index = len(self.datapoints)
@@ -348,9 +375,55 @@ class Experiment:
             datapoint.activations_upto_injection = {}
             datapoint.activations_injection = {}
             datapoint.activations_after_injection = {}
-    def load_datapoints(self, filepath: str):
+
+    def store_datapoints_without_activations(self, save_dir: str, filename: Optional[str] = None):
+        """Save all datapoints WITHOUT activations - creates a small, quick-to-load file.
+
+        This is useful for analysis where you only need question/answer/judge data
+        but not the heavy activation tensors.
+        """
+        import copy
+        os.makedirs(save_dir, exist_ok=True)
+
+        if filename is None:
+            base = f"{self.name.replace(' ', '_')}"
+            if self.unique_id:
+                base = f"{self.unique_id}_{base}"
+            filename = f"{base}_datapoints_NO_ACTIVATIONS.pkl"
+        filename = sanitize_filename(filename)
+        save_path = os.path.join(save_dir, filename)
+
+        # Create shallow copies of datapoints with cleared activations
+        light_datapoints = []
+        for dp in self.datapoints:
+            # Shallow copy the datapoint
+            light_dp = copy.copy(dp)
+            # Clear activation fields (set to empty dicts, not copying the heavy tensors)
+            light_dp.activations_question = {}
+            light_dp.activations_upto_injection = {}
+            light_dp.activations_injection = {}
+            light_dp.activations_after_injection = {}
+            light_datapoints.append(light_dp)
+
+        with open(save_path, "wb") as f:
+            dill.dump((light_datapoints, 0, len(light_datapoints)), f)
+
+        print(f"   Saved {len(light_datapoints)} datapoints (no activations) to {save_path}")
+        return save_path
+
+    def load_datapoints(self, filepath: str, map_location: str | None = None):
+        """Load datapoints from a pickle file.
+
+        Args:
+            filepath: Path to the pickle file
+            map_location: Device to load tensors to. Use 'cpu' to avoid GPU OOM.
+                         Default None loads to original device (GPU if saved on GPU).
+        """
         with open(filepath, "rb") as f:
-            data = dill.load(f)
+            if map_location == 'cpu':
+                data = CPUUnpickler(f).load()
+            else:
+                data = dill.load(f)
         if isinstance(data, tuple) and len(data) == 3:
             datapoints, start, end = data
         elif isinstance(data, list):

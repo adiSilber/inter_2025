@@ -4,11 +4,8 @@ from typing import Any, Dict
 
 from pipeline.interface import (
     Experiment,
-    ModelGenerationConfig,
-    JudgeGenerationConfig,
     SamplingParams,
 )
-from pipeline.dataset_loaders import aggregate_shuffle_strategy
 
 
 def experiment_config_for_wandb(
@@ -53,13 +50,15 @@ def experiment_config_for_wandb(
         "model_question_prompt_template": _class_name(mc.question_prompt_template),
         "model_dtype": str(mc.dtype),
         "model_sampling_params": _sampling_params_dict(mc.sampling_params),
-        # Judge
         # Dataset
         "dataset_loaders": [type(d).__name__ for d in dataset.loaders],
         "dataset_strategy": strategy_name,
         "dataset_seed": getattr(dataset, "seed", None),
+        # Activation clipping
         "activation_head_clipping": str(experiment.activation_head_clipping),
+        "clip_max_val": str(experiment.clip_max_val) if experiment.activation_head_clipping is not None else None,
     }
+    # Judge
     if jc:
         config.update(
             {
@@ -70,10 +69,4 @@ def experiment_config_for_wandb(
                 "judge_sampling_params": _sampling_params_dict(jc.sampling_params),
             }
         )
-    if experiment.activation_capturer is not None:
-        cap = experiment.activation_capturer
-        config["activation_capturer"] = _class_name(cap)
-        for attr in ("clip_max_val", "layers_to_clip", "capture_weights"):
-            if hasattr(cap, attr):
-                config[f"activation_capturer_{attr}"] = getattr(cap, attr)
     return config

@@ -2,10 +2,12 @@ from sklearn.calibration import partial
 import torch
 from torch import nn
 from transformers import LlamaModel
-from pipeline.interface import ActivationCapturer, DataPoint, Experiment, GenerationMode
-from typing import Optional,Any
+from pipeline.interface import ActivationCapturer, ActivationCapturerV2, DataPoint, Experiment, GenerationMode
+from typing import Optional, Any, cast
 from transformer_lens import HookedTransformer
 from transformer_lens.hook_points import HookPoint
+import transformers.models.qwen2.modeling_qwen2 as qwen2_mod
+
 class AttentionMapCapturerClipActivations(ActivationCapturer):
     """Captures attention maps and can intervene by clipping attention to question tokens."""
 
@@ -38,7 +40,7 @@ class AttentionMapCapturerClipActivations(ActivationCapturer):
     # def capturer(self, mode, datapoints: list[DataPoint], **kwargs):
     #     return super().capturer(mode, datapoints)
 
-    def bind(self, model: torch.nn.Module,**kwargs):
+    def bind(self, model: torch.nn.Module, **kwargs):
         """Analyze the model and prepare to capture attention maps."""
         if hasattr(model, "model") and hasattr(model.model, "layers"):
             self.layers = model.model.layers  # type: ignore
@@ -70,21 +72,19 @@ class AttentionMapCapturerClipActivations(ActivationCapturer):
         if self.layers is None:
             raise ValueError("Must call bind() before using context manager")
 
-        import transformers.models.qwen2.modeling_qwen2 as qwen2_mod
-
         self._original_eager_fn = qwen2_mod.eager_attention_forward
         capturer = self
 
         def patched_eager_attention_forward(
             module, query, key, value, attention_mask, scaling, dropout=0.0, **kwargs
         ):
+            
             key_states = qwen2_mod.repeat_kv(key, module.num_key_value_groups)
             value_states = qwen2_mod.repeat_kv(value, module.num_key_value_groups)
 
             attn_weights = torch.matmul(query, key_states.transpose(2, 3)) * scaling
             if attention_mask is not None:
-                causal_mask = attention_mask[:, :, :, : key_states.shape[-2]]
-                attn_weights = attn_weights + causal_mask
+                attn_weights = attn_weights + attention_mask
 
             attn_weights = nn.functional.softmax(
                 attn_weights, dim=-1, dtype=torch.float32
@@ -217,16 +217,140 @@ class AttentionMapCapturer(ActivationCapturer):
         self.hooks = []
 
 
-class AttentionHeadClipper(ActivationCapturer):
-
+class AttentionMapCapturerClipActivationsV2(ActivationCapturerV2):
     def __init__(
         self,
     ):
-        self.hooks_handles = []
-        self.current_modes = []
-        self.model: Optional[HookedTransformer] = None # type: ignore
+        super().__init__()
 
-    def bind(self, model: torch.nn.Module,**kwargs):
+    def bind(self, model: torch.nn.Module, **kwargs):
+        if not "experiment" in kwargs:
+            raise ValueError("Experiment config must be passed to AttentionMapCapturer via bind() kwargs")
+        self.experiment: Experiment = kwargs["experiment"]
+        self.clip_max_val = self.experiment.clip_max_val
+        self.heads_to_clip = self.experiment.activation_head_clipping if self.experiment.activation_head_clipping is not None else {} 
+        self.model = model
+        print("self.clip_max_val", self.clip_max_val)
+        self.attach_hooks()
+
+    def unbind(self):
+        self.remove_hooks()
+        self.model = None
+
+    def question_indecies_to_clip(self, datapoint: DataPoint, num_pad_tokens: int) -> list[int]:
+        start = self.experiment.model_generation_config.question_prompt_template.prompt_tokens_before_content
+        end = len(datapoint.question_formatted_contents_tokenized) - self.experiment.model_generation_config.question_prompt_template.prompt_tokens_after_content
+        start += num_pad_tokens
+        end += num_pad_tokens
+        return list(range(start, end))
+
+    def attach_hooks(self) -> None:
+        """Monkey-patch eager_attention_forward to clip attention BETWEEN softmax and @V.
+
+        The original used register_forward_hook which runs AFTER attn_output is
+        already computed, so the clipping never actually affected the model.
+        By patching eager_attention_forward we insert clipping right before
+        the attn_weights @ value_states matmul.
+        """
+        if self.model is None:
+            raise ValueError("Must call bind() before using context manager")
+
+
+        self._original_eager_fn = qwen2_mod.eager_attention_forward
+        capturer = self
+        def patched_eager_attention_forward(
+            module, query, key, value, attention_mask, scaling, dropout=0.0, **kwargs
+        ):
+            datapoints = self._batch_context_store["datapoints"]
+            modes = self._forward_context_store["modes"]
+            pads = self._batch_context_store["num_pad_tokens"]
+
+            key_states = qwen2_mod.repeat_kv(key, module.num_key_value_groups)
+            value_states = qwen2_mod.repeat_kv(value, module.num_key_value_groups)
+
+            attn_weights = torch.matmul(query, key_states.transpose(2, 3)) * scaling
+            if attention_mask is not None:
+                attn_weights = attn_weights + attention_mask
+
+            attn_weights = nn.functional.softmax(
+                attn_weights, dim=-1, dtype=torch.float32
+            ).to(query.dtype)
+            attn_weights = nn.functional.dropout(
+                attn_weights, p=dropout, training=module.training
+            )
+            batch_size = len(datapoints)
+
+
+            head_indices = self.heads_to_clip.get(module.layer_idx, [])
+            clipped = attn_weights.clone()
+            key_clipped = f"layer_{module.layer_idx}_attention_clipped"
+            # Capture original (unclipped) attention weights into each datapoint
+
+            for dp_idx in range(batch_size):
+                dp = datapoints[dp_idx]
+                if dp.should_capture_activations:
+                    if modes[dp_idx].value == GenerationMode.UPTO_INJECTION.value:
+                        target_dict = dp.activations_upto_injection
+                    elif modes[dp_idx].value == GenerationMode.INJECTION.value:
+                        target_dict = dp.activations_injection
+                    elif modes[dp_idx].value == GenerationMode.AFTER_INJECTION.value:
+                        target_dict = dp.activations_after_injection
+                    else:
+                        continue
+                    key = f"layer_{module.layer_idx}_attention"
+                    if key not in target_dict:
+                        target_dict[key] = []
+                    target_dict[key].append(attn_weights[dp_idx, :, :, :].detach().cpu())
+
+                # Clip and record clipped weights when in AFTER_INJECTION mode
+                if modes[dp_idx].value == GenerationMode.AFTER_INJECTION.value and len(head_indices) > 0:
+                    pad_val = pads[dp_idx] if pads is not None and len(pads) > dp_idx else 0
+                    if torch.is_tensor(pad_val):
+                        pad_val = int(pad_val.item())
+                    token_indecies = self.question_indecies_to_clip(dp, pad_val)
+                    # print(f"token_indecies: {token_indecies}")
+                    if not token_indecies:
+                        continue
+                    # Broadcast so (n_heads,) and (n_tokens,) index the (heads, seq, keys) block together
+                    dev = clipped.device
+                    head_indices_tensor = torch.as_tensor(head_indices, device=dev)[:, None]  # (n_heads, 1)
+                    token_indecies_tensor = torch.as_tensor(token_indecies, device=dev)[None, :]  # (1, n_tokens)
+                    clipped[dp_idx, head_indices_tensor, :, token_indecies_tensor] = torch.clamp(
+                        clipped[dp_idx, head_indices_tensor, :, token_indecies_tensor], max=capturer.clip_max_val
+                    )
+                    # Record clipped activations
+                    if dp.should_capture_activations:
+                        target_dict = dp.activations_after_injection
+                        if target_dict.get(key_clipped) is None:
+                            target_dict[key_clipped] = []
+                        target_dict[key_clipped].append(clipped[dp_idx, :, :, :].detach().cpu())
+            
+            attn_weights = clipped  # model now uses clipped weights
+
+            attn_output = torch.matmul(attn_weights, value_states)
+            attn_output = attn_output.transpose(1, 2).contiguous()
+            return attn_output, attn_weights
+
+        qwen2_mod.eager_attention_forward = patched_eager_attention_forward
+
+    def remove_hooks(self) -> None:
+        if self.model is None:
+            raise ValueError("Must call bind() before using context manager")
+        import transformers.models.qwen2.modeling_qwen2 as qwen2_mod
+
+        if hasattr(self, "_original_eager_fn"):
+            qwen2_mod.eager_attention_forward = self._original_eager_fn
+            del self._original_eager_fn
+        
+
+
+class AttentionHeadClipper(ActivationCapturerV2):
+    def __init__(
+        self,
+    ):
+        super().__init__()
+
+    def bind(self, model: torch.nn.Module, **kwargs):
         if not isinstance(model, HookedTransformer):
             raise ValueError(
                 "AttentionHeadClipper requires a TransformerLens 'HookedTransformer'. "
@@ -237,11 +361,11 @@ class AttentionHeadClipper(ActivationCapturer):
         self.experiment: Experiment = kwargs["experiment"]
         self.clip_max_val = self.experiment.clip_max_val
         self.heads_to_clip = self.experiment.activation_head_clipping if self.experiment.activation_head_clipping is not None else {} 
-        super().bind(model,**kwargs)
+        self.model = cast(HookedTransformer, model)
+        self.attach_hooks()
 
-    def capturer(self, modes: list[GenerationMode], datapoints: list[Any], **kwargs):
-        self.current_num_pad_tokens = kwargs.get("num_pad_tokens", [])
-        return super().capturer(modes, datapoints, **kwargs)
+    def unbind(self):
+        self.remove_hooks()
 
     def question_indecies_to_clip(self, datapoint: DataPoint, num_pad_tokens: int) -> list[int]:
         start = self.experiment.model_generation_config.question_prompt_template.prompt_tokens_before_content
@@ -249,49 +373,62 @@ class AttentionHeadClipper(ActivationCapturer):
         start += num_pad_tokens
         end += num_pad_tokens
         return list(range(start, end))
+        
     def attach_hooks(self) -> None:
-        if self.datapoints is None or self.current_modes is None:
-            raise ValueError("Must have datapoints and modes set before attaching hooks")
-        def _clipping_hook_fn(tensor, hook:HookPoint, head_indices : list[int], max_val, datapoints:list[DataPoint], modes:list[GenerationMode],pads:list[int]):
+        if self.model is None:
+            raise ValueError("Must call bind() before using context manager")
+        model = cast(HookedTransformer, self.model)
+        
+        def _clipping_hook_fn(tensor, hook: HookPoint, head_indices: list[int], max_val):
+            datapoints = self._batch_context_store["datapoints"]
+            modes = self._forward_context_store["modes"]
+            pads = self._batch_context_store["num_pad_tokens"]
+            
+            if not datapoints or not modes:
+                return tensor
+
             for dp_index, dp in enumerate(datapoints):
-                
-                
                 target_dict = {}
                 if dp.should_capture_activations:
-                    if modes[dp_index] == GenerationMode.UPTO_INJECTION:
+                    if modes[dp_index].value == GenerationMode.UPTO_INJECTION.value:
                         target_dict = dp.activations_upto_injection
-                    elif modes[dp_index] == GenerationMode.INJECTION:
+                    elif modes[dp_index].value == GenerationMode.INJECTION.value:
                         target_dict = dp.activations_injection
-                    elif modes[dp_index] == GenerationMode.AFTER_INJECTION:
+                    elif modes[dp_index].value == GenerationMode.AFTER_INJECTION.value:
                         target_dict = dp.activations_after_injection
 
-                    target_dict[f"layer_{hook.layer}_attention"].append(tensor[dp_index, :, 0, :].detach().cpu()) # shape (batch,heads,query,key) and we only have one query
+                    if target_dict[f"layer_{hook.layer}_attention"] is None:
+                        target_dict[f"layer_{hook.layer}_attention"] = []
+                    target_dict[f"layer_{hook.layer}_attention"].append(tensor[dp_index, :, :, :].detach().cpu()) # shape (batch,heads,query,key) and we only have one query
 
 
-                if modes[dp_index] != GenerationMode.AFTER_INJECTION and modes[dp_index] != GenerationMode.UPTO_INJECTION:
+
+                if modes[dp_index].value != GenerationMode.AFTER_INJECTION.value and modes[dp_index].value != GenerationMode.UPTO_INJECTION.value:
                     continue
-                token_indecies = self.question_indecies_to_clip(dp, pads[dp_index])
+                
+                pad_val = pads[dp_index] if pads is not None and len(pads) > dp_index else 0
+                token_indecies = self.question_indecies_to_clip(dp, pad_val)
                 tensor[dp_index, head_indices, :, token_indecies] = torch.clamp(
                     tensor[dp_index, head_indices, :, token_indecies],
                     max=max_val,
                 )
 
                 if dp.should_capture_activations and len(head_indices) > 0:
-                    target_dict[f"layer_{hook.layer}_attention_clipped"].append(tensor[dp_index, :, 0, :].detach().cpu()) 
+                    if target_dict[f"layer_{hook.layer}_attention_clipped"] is None:
+                        target_dict[f"layer_{hook.layer}_attention_clipped"] = []
+                    target_dict[f"layer_{hook.layer}_attention_clipped"].append(tensor[dp_index, :, :, :].detach().cpu()) 
             
             return tensor
-    
-        if self.model is None:
-            raise ValueError("Must call bind() before using context manager")
 
-        for layer_idx in range(self.model.cfg.n_layers):
+        for layer_idx in range(model.cfg.n_layers):
             hook_name = f"blocks.{layer_idx}.attn.hook_pattern"
-            hook = partial(_clipping_hook_fn, head_indices=self.heads_to_clip.get(layer_idx, []), max_val=self.clip_max_val,datapoints=self.datapoints, modes=self.current_modes, pads=self.current_num_pad_tokens)
-            self.model.add_hook(hook_name, hook)
+            hook = partial(_clipping_hook_fn, head_indices=self.heads_to_clip.get(layer_idx, []), max_val=self.clip_max_val)
+            model.add_hook(hook_name, hook)
 
     def remove_hooks(self) -> None:
-        if self.model:
-            self.model.remove_all_hook_fns(including_permanent=False)
+        if self.model is None:
+            raise ValueError("Must call bind() before using context manager")
+        cast(HookedTransformer, self.model).remove_all_hook_fns(including_permanent=False)
 
 
 

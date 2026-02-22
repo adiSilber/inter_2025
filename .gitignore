@@ -15,5 +15,6 @@ comm
 .artifacts_old*
 wandb
 
+src/
 
 experiments

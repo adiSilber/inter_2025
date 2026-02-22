@@ -18,40 +18,51 @@ def get_indecies_of_injection(datapoint: DataPoint):
 
 
 def all_tokens(sample):
-    return sample.question_formatted_contents_tokenized + sample.upto_injection_tokens + sample.injection_tokenized + sample.after_injection_tokens
+    return sample.question_formatted_contents_tokenized + sample.upto_injection_tokens + sample.injection_tokens + sample.after_injection_tokens
 
 def sample_to_text(sample):
     return ''.join(all_tokens(sample))
 
 def get_text_after_injection(sample):
     all_text = sample_to_text(sample)
-    return all_text[len(''.join(sample.question_formatted_contents_tokenized + sample.upto_injection_tokens + sample.injection_tokenized)):]
+    return all_text[len(''.join(sample.question_formatted_contents_tokenized + sample.upto_injection_tokens + sample.injection_tokens)):]
 
 def sum_layer_heads(layer):
     # activations shape: (batch_size, num_heads, seq_len, seq_len)
-    sum_matrix = layer[0, 0, :, :].clone().zero_()
-    num_heads = layer.shape[1]
+    # sum_matrix = layer[0, 0, :, :].clone().zero_()
+    # num_heads = layer.shape[1]
+    # for idx in range(num_heads):
+    #     sum_matrix += layer[0, idx, :, :]
+    # return sum_matrix
+
+    sum_matrix = layer[0, :, :].clone().zero_()
+    num_heads = layer.shape[0]
     for idx in range(num_heads):
-        sum_matrix += layer[0, idx, :, :]
+        sum_matrix += layer[idx, :, :]
     return sum_matrix
 
 def apply_color_ranges(plt, color_range_and_names):
     for color_range, color_name in color_range_and_names:
         plt.axvspan(color_range[0], color_range[1], facecolor=color_name, alpha=0.3)
 
-def attention_per_layer_as_a_graph(curr_sample, x_after_inj: Iterable[int]=[0], layers: Iterable[int]=range(DEEPSEEK_QWEN_DISTILL_7B), norm_many_x: bool =False, y_lim_max=5, color_ranges=None):
+def attention_per_layer_as_a_graph(curr_sample, x_after_inj: Iterable[int]=[0], layers: Iterable[int]=range(DEEPSEEK_QWEN_DISTILL_7B), norm_many_x: bool =False, y_lim_max=5, color_ranges=None, clipped=False):
     # Given a sample go to the given x indexes after the injection and 
     # graph how much it attended to all the tokens before it
     # Plot a line for each layer index, each with a different color and legend
 
-    xticks = curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokenized + curr_sample.after_injection_tokens
-    upto_injection_idx = len(curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokenized)+1
+    xticks = curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokens + curr_sample.after_injection_tokens
+    upto_injection_idx = len(curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokens)+1
     plt.figure(figsize=(30, 8))
     colors = cm.get_cmap(GRAPH_COLORS, DEEPSEEK_QWEN_DISTILL_7B)
     for layer_idx in layers:
         sum_per_x = []
         for inj_idx in x_after_inj:
-            layer = curr_sample.activations_after_injection[f"layer_{layer_idx}_attention"][inj_idx]
+            if clipped:
+                layer = curr_sample.activations_after_injection[f"layer_{layer_idx}_attention_clipped"][inj_idx]
+            else:
+                layer = curr_sample.activations_after_injection[f"layer_{layer_idx}_attention"][inj_idx]
+            if hasattr(curr_sample, 'pad_length'):
+                layer = layer[:,:,curr_sample.pad_length:]
             summed_matrix = sum_layer_heads(layer)
             col_sums = summed_matrix.float().sum(dim=0).cpu().numpy()
             col_sums = col_sums[:upto_injection_idx+min(x_after_inj)]
@@ -79,8 +90,8 @@ def attention_per_head_as_a_graph(curr_sample, x_after_inj: 0, layers: Iterable[
     # graph how much it attended to all the tokens before it
     # Plot a line for each layer index, each with a different color and legend
 
-    xticks = curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokenized + curr_sample.after_injection_tokens
-    upto_injection_idx = len(curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokenized)+1
+    xticks = curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokens + curr_sample.after_injection_tokens
+    upto_injection_idx = len(curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokens)+1
     plt.figure(figsize=(30, 8))
     colors = cm.get_cmap(GRAPH_COLORS, len(layers) * 28)
     for t, layer_idx in enumerate(layers):
@@ -111,8 +122,8 @@ def attention_to_words_per_layer_as_a_graph(curr_sample, words_indices, layers=r
     # Plot a line for each layer index, each with a different color and legend
     num_layers = len([k for k in curr_sample.activations_after_injection.keys() if k.startswith('layer_') and k.endswith('_attention')])
 
-    xticks = curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokenized + curr_sample.after_injection_tokens
-    after_injection_idx = len(curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokenized)
+    xticks = curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokens + curr_sample.after_injection_tokens
+    after_injection_idx = len(curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokens)
     plt.figure(figsize=(30, 8))
 
     colors = cm.get_cmap(GRAPH_COLORS, num_layers)
@@ -163,8 +174,8 @@ def attention_to_seq_vs_seq_to_words_per_layer_as_a_graph(*args, curr_sample, fi
         if len(after_tokens) < token_cutoff:
              after_tokens += [""] * (token_cutoff - len(after_tokens))
 
-    xticks = curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokenized + after_tokens
-    after_injection_idx = len(curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokenized)
+    xticks = curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokens + after_tokens
+    after_injection_idx = len(curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokens)
     plt.figure(figsize=(30, 8))
 
     colors = cm.get_cmap(GRAPH_COLORS, num_layers)
@@ -220,8 +231,8 @@ def attention_to_seq_vs_seq_to_words_per_layer_as_a_graph(*args, curr_sample, fi
 
 def attention_percentrage_to_words_as_a_graph(curr_sample, indecies, layers=range(28), y_lim_max=100, show_plot=False):
     # Plot a line for each layer index, each with a different color and legend
-    xticks = curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokenized + curr_sample.after_injection_tokens
-    after_injection_idx = len(curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokenized)
+    xticks = curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokens + curr_sample.after_injection_tokens
+    after_injection_idx = len(curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokens)
 
     attendence = []
     for index in range(len(curr_sample.after_injection_tokens)):
@@ -258,13 +269,13 @@ def attention_percentrage_to_words_as_a_graph(curr_sample, indecies, layers=rang
 def attention_percentrage_to_words_as_a_graph_injection(curr_sample, indecies, layers=range(28), y_lim_max=100, show_plot=False):
     # Warning - this is ameaningless graph since injection tokens are not reallt a caluculated attendence
     # Plot a line for each layer index, each with a different color and legend
-    xticks = curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokenized + curr_sample.after_injection_tokens
+    xticks = curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokens + curr_sample.after_injection_tokens
     in_injection_idx = len(curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens)
     plt.figure(figsize=(30, 8))
 
 # .activations_injection[f"layer_{0}_attention"][0].shape
     attendence = []
-    for index in range(len(curr_sample.injection_tokenized)-1):
+    for index in range(len(curr_sample.injection_tokens)-1):
         first_sum = 0
         second_sum = 0
         for layer_idx in layers:
@@ -294,7 +305,7 @@ def attention_percentrage_to_words_as_a_graph_injection(curr_sample, indecies, l
 
 def attention_percentrage_to_words_as_a_graph_upto_injection(curr_sample, indecies, layers=range(28), y_lim_max=100, show_plot=False):
     # Plot a line for each layer index, each with a different color and legend
-    xticks = curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokenized + curr_sample.after_injection_tokens
+    xticks = curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokens + curr_sample.after_injection_tokens
     upto_injection_idx = len(curr_sample.question_formatted_contents_tokenized)
     plt.figure(figsize=(30, 8))
 
@@ -341,7 +352,7 @@ def percentage_of_attention_to_indices(curr_sample, question_indicies, color_ran
         for color_range, color_name in color_ranges:
             plt.axvspan(color_range[0], color_range[1], facecolor=color_name, alpha=0.3)
 
-    xticks = curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokenized + curr_sample.after_injection_tokens
+    xticks = curr_sample.question_formatted_contents_tokenized + curr_sample.upto_injection_tokens + curr_sample.injection_tokens + curr_sample.after_injection_tokens
     plt.xticks(ticks=range(len(xticks)), labels=xticks, rotation=80)
     plt.ylim(0, 100)
     plt.xlabel('Token')
@@ -397,27 +408,39 @@ def load():
         print(f"ℹ️  No saved state found at '{filename}'. Starting fresh.")
 
 
-def load_all_datapoints(experiment: Experiment, file_path: str, start_index: int, end_index: int, jumps: int):
+def load_all_datapoints(experiment: Experiment, file_path: str, start_index: int, end_index: int, jumps: int = None, map_location: str | None = None):
     """Load all datapoint files that follow the __n_m.pkl pattern using experiment.load_datapoints.
-    
+
     Args:
         experiment: The experiment object to load datapoints into
         file_path: A sample path like '..._datapoints__0_10.pkl'
         start_index: Starting index for the ranges
         end_index: Ending index for the ranges
-        jumps: The size of each range block
-        
+        jumps: The size of each range block. If None, loads the single file directly.
+        map_location: Device to load tensors to. Use 'cpu' to avoid GPU OOM.
+
     Returns:
         The updated experiment.datapoints list.
     """
+    # If no jumps specified, load the single file directly
+    if jumps is None:
+        if os.path.exists(file_path):
+            try:
+                experiment.load_datapoints(file_path, map_location=map_location)
+            except Exception as e:
+                print(f"Error loading {file_path}: {e}")
+        else:
+            print(f"Warning: File {file_path} not found")
+        return experiment.datapoints
+
     # Identify the pattern __n_m in the file path
     pattern = r'__\d+_\d+'
     match = re.search(pattern, file_path)
-    
+
     if not match:
         # Fallback to loading the single file if possible
         if os.path.exists(file_path):
-            experiment.load_datapoints(file_path)
+            experiment.load_datapoints(file_path, map_location=map_location)
         return experiment.datapoints
 
     # Get the prefix (everything before __) and suffix (everything after the numbers)
@@ -427,10 +450,10 @@ def load_all_datapoints(experiment: Experiment, file_path: str, start_index: int
     # Iterate through the ranges defined by start, end, and jumps
     for i in range(start_index, end_index, jumps):
         current_file = f"{prefix}__{i}_{i+jumps}{suffix}"
-        
+
         if os.path.exists(current_file):
             try:
-                experiment.load_datapoints(current_file)
+                experiment.load_datapoints(current_file, map_location=map_location)
             except Exception as e:
                 print(f"Error loading {current_file}: {e}")
         else:
@@ -463,7 +486,7 @@ def printdp(dp: DataPoint, i: int):
     print(fmt("question_tokenized (indexed)", format_tokens_with_indices(dp.question_formatted_contents_tokenized)))
     print(fmt("question_contents", dp.question_contents))
     print(fmt("injection", dp.injection))
-    print(fmt("injection_tokenized", dp.injection_tokens))
+    print(fmt("injection_tokens", dp.injection_tokens))
     
     print(fmt("upto_injection_tokens", "".join(dp.upto_injection_tokens)))
     print(fmt("after_injection_tokens", "".join(dp.after_injection_tokens)))

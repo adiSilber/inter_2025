@@ -6,6 +6,7 @@
 #SBATCH --cpus-per-task=1 
 #SBATCH --gpus=1 --constraint='l40s|a6000|a5000|geforce_rtx_3090' 
 #SBATCH --mem=32G
+# SBATCH --nodelist=n-801
 #SBATCH --output=logs/qwen-infr_play_%j.out
 #SBATCH --error=logs/qwen-infr_play_%j.err
 #SBATCH --account=gpu-research
@@ -63,15 +64,14 @@ print(subprocess.run(["nvidia-smi"], capture_output=True, text=True).stdout)
 
 
 import torch
-from typing import Any
+from typing import Any, Optional, cast, cast
 from pipeline.interface import (
-    Experiment,  ModelGenerationConfig, JudgeGenerationConfig, 
+    ActivationCapturerV2, Experiment,  ModelGenerationConfig, JudgeGenerationConfig, 
     SamplingParams
 )
-from pipeline.dataset_loaders import aggregated_dataset_loader, aggregate_shuffle_strategy, SimpleDatasetLoader
-from pipeline.judge_correctness import JudgeDecision
-from pipeline.judge_correctness import CorrectnessJudge
-from pipeline.hooks import AttentionHeadClipper
+from pipeline.dataset_loaders import aggregated_dataset_loader, aggregate_shuffle_strategy, SimpleDatasetLoader, MATH500Loader, OneSolutionSimpleLoader
+from pipeline.judge_correctness import JudgeDecision, CorrectnessJudge
+from pipeline.hooks import AttentionHeadClipper, AttentionMapCapturerClipActivationsV2
 from pipeline.injections import (
     SunWeightRedirectInjection,
 )
@@ -80,7 +80,7 @@ from pipeline.stops import SentenceEndStopCondition, EOSTokenStopCondition
 from pipeline.wandb_utils import experiment_config_for_wandb
 import wandb
 from pipeline.generate_batched import GenerateBatched
-from pipeline.prompts import ShortAnswerPromptTemplate, MathEvaluatorJudgePrompt
+from pipeline.prompts import ShortAnswerPromptTemplate, MathEvaluatorJudgePrompt, SimpleEvaluatorJudgePrompt
 
 
 
@@ -89,7 +89,7 @@ model_path = "/home/ADV_2526a/evyataroren/inter_2025/models/DS-qwen-7B/DeepSeek-
 judge_model_path = "/home/ADV_2526a/evyataroren/inter_2025/models/DS-qwen-7B/DeepSeek-R1-Distill-Qwen-7B"
 dataset_path = "/home/ADV_2526a/evyataroren/inter_2025/datasets/datasets"
 model_config = ModelGenerationConfig(
-    model_name="qwen-7B",
+    model_name="Qwen/Qwen-7B",
     model_path=model_path,
     should_stop=SentenceEndStopCondition(),
     get_injection=SunWeightRedirectInjection(),
@@ -109,7 +109,8 @@ model_config = ModelGenerationConfig(
 judge_config = JudgeGenerationConfig(
     judge_name="qwen-7B-judge",
     judge_model_path=judge_model_path,
-    judge_prompt=MathEvaluatorJudgePrompt(),
+    judge_prompt=SimpleEvaluatorJudgePrompt(),
+
     sampling_params=SamplingParams(
         temperature=0.0,
         top_k=None,
@@ -121,28 +122,29 @@ judge_config = JudgeGenerationConfig(
 )
 
 dataset = aggregated_dataset_loader(
-    datasets=[SimpleDatasetLoader],
+    datasets=[OneSolutionSimpleLoader],  # Simple questions with single definitive answers
     seed=42,
     strategy=aggregate_shuffle_strategy.SEQUENTIAL,
     base_path=dataset_path
 )
 
 experiment = Experiment(
-    name="batched_test_ds_simple,inject_eoSen,attention_clip_0,inject_sunWeight",
-    runner_name="batched runner",
+    name="batched_one_solution_simple,inject_eoSen,yes_attention_clip_all_to_0,capture_activations,inject_sunWeight,keep_also_no_activations_file,debug_3_why_injection_not_happens",
+    runner_name="yonatan",
     dataset=dataset,
     model_generation_config=model_config,
     judge_generation_config=judge_config,
     seed=42,
     unique_id=os.environ.get("SLURM_ARRAY_JOB_ID", str(int(time()))) ,
-    activation_head_clipping={0:[0,1,2]},
-    clip_max_val=1e-6,
-    activation_capturer=AttentionHeadClipper()
+    activation_head_clipping={i:[j for j in range(28)] for i in range(28)}, # clip all heads in all layers to 0
+    clip_max_val=0.0,
+    activation_capturer=AttentionMapCapturerClipActivationsV2()
 )
+print("unique_id", experiment.unique_id)
 
 print(f"   Populating datapoints from dataset...")
 experiment.populate_datapoints(num=100)
-experiment.datapoints = experiment.datapoints[:10]
+experiment.datapoints = experiment.datapoints[12:15]
 for dp in experiment.datapoints:
     dp.should_capture_activations = True
 
@@ -162,6 +164,9 @@ def run_generation():
     )
     if run is not None:
         experiment.wandb_run_id = run.id
+
+
+    print("WANDB id for this run:", experiment.wandb_run_id)
 
     # Time how long it takes to store experiment metadata/datapoints (initial save)
     _t0 = time()
@@ -194,54 +199,58 @@ def run_generation():
 
     print("   Generation complete!")
     generator.unload_model()
-    experiment.datapoints_to_cpu()
+    # experiment.datapoints_to_cpu()
 
     
-    print("\n3. Running judge validation...")
-    judge = CorrectnessJudge(experiment, device='cuda')
-    judge.run(batch_size=8)
-    judge.unload_model()
+    # COMMENTED OUT: Judge - using external judge (Claude) instead of model-based judge
+    # The model-based judge had accuracy issues with semantic matching
+    # print("\n3. Running judge validation...")
+    # judge = CorrectnessJudge(experiment, device='cuda')
+    # judge.run(batch_size=8)
+    # judge.unload_model()
+    #
+    # print("\n4. Done generating judge decisions. datapoints populated")
+    #
+    # # Compute and log judge decision statistics
+    # total_judged = len(experiment.datapoints)
+    #
+    # # Count each decision type
+    # decision_counts = {}
+    # for decision in JudgeDecision:
+    #     decision_counts[decision] = sum(1 for dp in experiment.datapoints if dp.judge_decision == decision)
+    #
+    #
+    # # Update wandb with all decision statistics
+    # wandb_summary :dict[str,Any]= {
+    #     "judge_total": total_judged,
+    #     "num_datapoints_used": total_judged,
+    # }
+    # for decision, count in decision_counts.items():
+    #     wandb_summary[f"judge_{decision.value}_count"] = count
+    #     wandb_summary[f"judge_{decision.value}_ratio"] = count / total_judged if total_judged else 0.0
+    #
+    # if run is not None:
+    #     run.summary.update(wandb_summary)
+    #
+    # print("Updated wandb run with judge results.")
+    #
+    # print(f"   Judge decision breakdown:")
+    # for decision, count in decision_counts.items():
+    #     ratio = count / total_judged if total_judged else 0.0
+    #     print(f"      {decision.value}: {count}/{total_judged} ({ratio:.4f})")
 
-    print("\n4. Done generating judge decisions. datapoints populated")
-
-    # Compute and log judge decision statistics
-    total_judged = len(experiment.datapoints)
-    
-    # Count each decision type
-    decision_counts = {}
-    for decision in JudgeDecision:
-        decision_counts[decision] = sum(1 for dp in experiment.datapoints if dp.judge_decision == decision)
-    
-   
-    # Update wandb with all decision statistics
-    wandb_summary :dict[str,Any]= {
-        "judge_total": total_judged,
-        "num_datapoints_used": total_judged,
-    }
-    for decision, count in decision_counts.items():
-        wandb_summary[f"judge_{decision.value}_count"] = count
-        wandb_summary[f"judge_{decision.value}_ratio"] = count / total_judged if total_judged else 0.0
-    
-    if run is not None:
-        run.summary.update(wandb_summary)
-
-    print("Updated wandb run with judge results.")
-
-    print(f"   Judge decision breakdown:")
-    for decision, count in decision_counts.items():
-        ratio = count / total_judged if total_judged else 0.0
-        print(f"      {decision.value}: {count}/{total_judged} ({ratio:.4f})")
-
-    print("resaving datapoints with judge decisions...") 
-    _t_start_resave = time()
-    experiment.store_datapoints_only(output_dir,override=True)
-    _t_resave = time() - _t_start_resave
-    print(f"  Resaved all datapoints (with judge decisions) in {_t_resave:.3f}s")
-    try:
-        if run is not None:
-            run.log({"resave_datapoints_time_s": _t_resave})
-    except Exception:
-        pass
+    # COMMENTED OUT: Final resave - this creates a huge combined file (28GB+) that's
+    # hard to load. The batch saves (0_16, 16_32, etc.) are sufficient and smaller.
+    # print("resaving datapoints with judge decisions...")
+    # _t_start_resave = time()
+    # experiment.store_datapoints_only(output_dir,override=True)
+    # _t_resave = time() - _t_start_resave
+    # print(f"  Resaved all datapoints (with judge decisions) in {_t_resave:.3f}s")
+    # try:
+    #     if run is not None:
+    #         run.log({"resave_datapoints_time_s": _t_resave})
+    # except Exception:
+    #     pass
     
     # Verify activations were captured (before clearing)
     print("\n2a. Verifying captured activations...")
@@ -295,16 +304,17 @@ def run_generation():
     
     print("  Clearing activations from memory...")
     experiment.clear_activations(0, len(experiment.datapoints))
-    
+
+    # Save a lightweight version of all datapoints (no activations) for quick loading
+    print("  Saving lightweight datapoints (no activations) for quick analysis...")
+    experiment.store_datapoints_without_activations(output_dir)
+
     print("\n" + "=" * 80)
     print("Experiment Complete!")
     print("=" * 80)
     print(f"\nResults:")
     print(f"  - Total questions: {len(experiment.datapoints)}")
-    print(f"  - Judge decision breakdown:")
-    for decision, count in decision_counts.items():
-        ratio = count / total_judged if total_judged else 0.0
-        print(f"      {decision.value}: {count}/{total_judged} ({ratio:.4f})")
+    print(f"  - Judge: SKIPPED (use external judge)")
     print(f"  - Total tokens with activations: {total_activations}")
 
     if run:

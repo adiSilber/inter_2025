@@ -63,7 +63,6 @@ class CorrectnessJudge:
             response_body = judge_response[think_end_pos + len("</think>"):].strip()
         else:
             response_body = judge_response.strip()
-        
         # Find the FIRST valid answer in the response (by position)
         first_match = None
         first_pos = len(response_body)
@@ -105,6 +104,7 @@ class CorrectnessJudge:
                     model_answer=model_answer,
                     correct_answer=dp.question_correct_answer
                 )
+                
                 prompts.append(prompt)
                 
             inputs = self.tokenizer(prompts, return_tensors="pt", padding=True).to(self.device)
