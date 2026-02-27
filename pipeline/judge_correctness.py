@@ -67,13 +67,20 @@ class CorrectnessJudge:
         first_match = None
         first_pos = len(response_body)
         
-        for valid_answer in [member for member in JudgeDecision]:
-            match = re.search(r'\b' + re.escape(valid_answer.name) + r'\b', response_body, re.IGNORECASE)
+        # member for member in JudgeDecision
+        for valid_answer in ["NOT_ATTEMPTED", "ATTEMPTED"]:
+            match = re.search(r'\b' + re.escape(valid_answer) + r'\b', response_body, re.IGNORECASE)
             if match and match.start() < first_pos:
                 first_pos = match.start()
                 first_match = valid_answer
         
-        return first_match
+        if first_match is not None:
+            if first_match.upper() == "NOT_ATTEMPTED":
+                return JudgeDecision.INCORRECT
+            elif first_match.upper() == "ATTEMPTED":
+                return JudgeDecision.CORRECT
+            
+        return None
 
     def run(self, batch_size: int = 8, start_index: int = 0, end_index: Optional[int] = None):
         """
@@ -102,7 +109,8 @@ class CorrectnessJudge:
                 prompt = self.config.judge_prompt.format(
                     question=dp.question_contents,
                     model_answer=model_answer,
-                    correct_answer=dp.question_correct_answer
+                    correct_answer=dp.question_correct_answer,
+                    injection=dp.injection,
                 )
                 
                 prompts.append(prompt)
@@ -135,6 +143,7 @@ class CorrectnessJudge:
                 dp.judge_decision = self._parse_judge_decision(judge_full_response)
                 
                 print(f"  Datapoint {dp.question_id}: Decision = {dp.judge_decision}")
-                print(f"  Judge thinking summary: {judge_full_response[:100]}...")
+                print(f"  Judge prompt: {dp.judge_prompt}")
+                print(f"  Judge thinking: {judge_full_response}")
 
 

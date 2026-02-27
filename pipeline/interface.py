@@ -179,7 +179,7 @@ class ModelPromptTemplate(ABC):
         raise NotImplementedError
 class JudgePromptTemplate(ABC):
     @abstractmethod
-    def format(self, question: str,model_answer:str,correct_answer:str) -> str:
+    def format(self, question: str,model_answer:str,correct_answer:str, **kwargs) -> str:
         raise NotImplementedError
 class Injection(ABC):
     @abstractmethod
@@ -261,7 +261,7 @@ class Experiment:
     activation_head_clipping : Optional[dict[int,list[int]]] = None
     clip_max_val: float = 1e-6
     
-    def populate_datapoints(self,num:Optional[int]=None):
+    def populate_datapoints(self, num: Optional[int]=None):
         count = 0
         for batch in self.dataset:
             # Dataset iterator returns lists of question_items
