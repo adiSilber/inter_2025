@@ -66,7 +66,7 @@ from pipeline.interface import (
     SamplingParams, DataPoint, ActivationCapturer,
     ShouldStop, Injection, ModelPromptTemplate, JudgePromptTemplate
 )
-from pipeline.dataset_loaders import aggregated_dataset_loader, MATH500Loader, aggregate_shuffle_strategy, SimpleDatasetLoader
+from pipeline.dataset_loaders import aggregated_dataset_loader, MATH500Loader, aggregate_shuffle_strategy, SimpleDatasetLoader, OneSolutionSimpleLoader
 from pipeline.generate_normal import GenerateSimple
 from pipeline.judge_correctness import CorrectnessJudge
 from pipeline.hooks import AttentionMapCapturer, AttentionMapCapturerClipActivations
@@ -74,23 +74,23 @@ from pipeline.injections import (
     SunWeightRedirectInjection, QuadraticFormulaRedirectInjection, NearMissInjection, Math500NearMissInjection,
 )
 
-from pipeline.stops import SentenceEndStopCondition, EOSTokenStopCondition
+from pipeline.stops import SentenceEndStopCondition, EOSTokenStopCondition, ImmediateStopCondition
 from pipeline.prompts import ShortAnswerPromptTemplate, MathEvaluatorJudgePrompt
 from pipeline.wandb_utils import experiment_config_for_wandb
 import wandb
 
 
 
-output_dir = "/home/ADV_2526a/evyataroren/inter_2025/artifacts"
+output_dir = "/home/ADV_2526a/evyataroren/inter_2025/artifacts_adisi"
 model_path = "/home/ADV_2526a/evyataroren/inter_2025/models/DS-qwen-7B/DeepSeek-R1-Distill-Qwen-7B"
 judge_model_path = "/home/ADV_2526a/evyataroren/inter_2025/models/DS-qwen-7B/DeepSeek-R1-Distill-Qwen-7B"
 dataset_path = "/home/ADV_2526a/evyataroren/inter_2025/datasets/datasets"
 model_config = ModelGenerationConfig(
     model_name="qwen-7B",
     model_path=model_path,
-    should_stop=SentenceEndStopCondition(),
-    get_injection=SunWeightRedirectInjection(),
-    global_stop=EOSTokenStopCondition(),
+    should_stop=ImmediateStopCondition(),  # Inject immediately at start
+    get_injection=Math500NearMissInjection(),
+    global_stop=EOSTokenStopCondition(),  # Continue generating until EOS
     question_prompt_template=ShortAnswerPromptTemplate(),
     sampling_params=SamplingParams(
         temperature=0.7,
@@ -118,14 +118,14 @@ judge_config = JudgeGenerationConfig(
 )
 
 dataset = aggregated_dataset_loader(
-    datasets=[SimpleDatasetLoader],
+    datasets=[MATH500Loader],
     seed=42,
     strategy=aggregate_shuffle_strategy.SEQUENTIAL,
     base_path=dataset_path
 )
 
 experiment = Experiment(
-    name="adisi_extreme_clip_1e-7_simple_sunweight_260216_v1",
+    name="adisi_immediate_inject_math500_adjust_injection_no_clipping_no_activations_260303_v1",
     runner_name="adisi",
     dataset=dataset,
     model_generation_config=model_config,
@@ -138,7 +138,7 @@ experiment = Experiment(
 print(f"   Populating datapoints from dataset...")
 experiment.populate_datapoints(num=10)  # Only 10 datapoints for testing
 for dp in experiment.datapoints:
-    dp.should_capture_activations = True
+    dp.should_capture_activations = False
 
 print(f"   Loaded {len(experiment.datapoints)} datapoints from dataset.")
 
@@ -152,13 +152,18 @@ def run_generation():
 
     run = None
     if JOB_ID == 0:
-        run = wandb.init(
-            entity="inter_2026",
-            project="Aha-moments",
-            name=experiment.name,
-            config=experiment_config_for_wandb(experiment,output_dir),
-        )
-        experiment.wandb_run_id = run.id if run is not None else None
+        try:
+            run = wandb.init(
+                entity="inter_2026",
+                project="Aha-moments",
+                name=experiment.name,
+                config=experiment_config_for_wandb(experiment,output_dir),
+            )
+            experiment.wandb_run_id = run.id if run is not None else None
+        except Exception as e:
+            print(f"Warning: wandb init failed: {e}")
+            run = None
+            experiment.wandb_run_id = None
 
     if JOB_ID == 0:
         print (f"\n1. Storing experiment metadata to {output_dir}...")
@@ -208,6 +213,11 @@ def run_generation():
     print("   Moving activations to CPU to free GPU memory...")
     experiment.datapoints_to_cpu()
 
+    # Remove activation capturer hooks before unloading model
+    if hasattr(experiment.activation_capturer, 'remove_hooks'):
+        print("   Removing activation capturer hooks...")
+        experiment.activation_capturer.remove_hooks()
+
     # Unload model to free memory
     generator.unload_model()
     del generator  # Explicitly delete the generator object to release all references
@@ -230,22 +240,19 @@ def run_generation():
     if torch.cuda.memory_allocated() > 1e9:  # More than 1GB still allocated
         print(f"   WARNING: Still {torch.cuda.memory_allocated() / 1e9:.2f} GB allocated after cleanup!")
 
-    print("\n3. Running judge validation...")
-    judge = CorrectnessJudge(experiment, device='cuda')
-    judge.run(batch_size=8)
-    judge.unload_model()
-
-    print("\n4. Done generating judge decisions. datapoints populated")
-
-    # Compute and log judge correctness overall score
-    if judge_config is not None:
-        total_judged = len(experiment.datapoints)
-        correct_count = sum(1 for dp in experiment.datapoints if dp.judge_decision == JudgeDecision.CORRECT)
-        judge_correctness = correct_count / total_judged if total_judged else 0.0
-        print(f"   Judge correctness: {correct_count}/{total_judged} = {judge_correctness:.4f}")
-
-        print("resaving datapoints with judge decisions...")
-        experiment.store_datapoints_only(output_dir, start_index=0, end_index=len(experiment.datapoints), offset_relative_to_experiment=start,override=True)
+    # Judge disabled for this experiment
+    # print("\n3. Running judge validation...")
+    # judge = CorrectnessJudge(experiment, device='cuda')
+    # judge.run(batch_size=8)
+    # judge.unload_model()
+    # print("\n4. Done generating judge decisions. datapoints populated")
+    # if judge_config is not None:
+    #     total_judged = len(experiment.datapoints)
+    #     correct_count = sum(1 for dp in experiment.datapoints if dp.judge_decision == JudgeDecision.CORRECT)
+    #     judge_correctness = correct_count / total_judged if total_judged else 0.0
+    #     print(f"   Judge correctness: {correct_count}/{total_judged} = {judge_correctness:.4f}")
+    #     print("resaving datapoints with judge decisions...")
+    #     experiment.store_datapoints_only(output_dir, start_index=0, end_index=len(experiment.datapoints), offset_relative_to_experiment=start,override=True)
         
    # Verify activations were captured (before clearing)
     print("\n2a. Verifying captured activations...")
@@ -310,8 +317,7 @@ def run_generation():
     print(f"\nResults:")
     print(f"  - Runner: {experiment.runner_name}")
     print(f"  - Total questions: {len(experiment.datapoints)}")
-    if judge_config is not None:
-        print(f"  - Correct answers (judge): {correct_count}/{total_judged} ({judge_correctness:.4f})") # type: ignore
+    # Judge disabled - no correctness stats
     print(f"  - Total tokens with activations: {total_activations}")
 
     if run is not None:

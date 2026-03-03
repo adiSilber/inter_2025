@@ -221,10 +221,17 @@ class DataPoint:
     should_capture_activations: bool = False
 
     pad_length: int = 0
-    activations_question: dict[str, List[Optional[torch.Tensor]]] = field(default_factory=dict) 
-    activations_upto_injection: dict[str, List[Optional[torch.Tensor]]] = field(default_factory=dict) 
-    activations_injection: dict[str, List[Optional[torch.Tensor]]] = field(default_factory=dict) 
-    activations_after_injection: dict[str, List[Optional[torch.Tensor]]] = field(default_factory=dict) 
+    activations_question: dict[str, List[Optional[torch.Tensor]]] = field(default_factory=dict)
+    activations_upto_injection: dict[str, List[Optional[torch.Tensor]]] = field(default_factory=dict)
+    activations_injection: dict[str, List[Optional[torch.Tensor]]] = field(default_factory=dict)
+    activations_after_injection: dict[str, List[Optional[torch.Tensor]]] = field(default_factory=dict)
+
+    def __repr__(self):
+        """Lightweight repr - avoids serializing huge tensors."""
+        n_act = sum(len(v) for v in self.activations_after_injection.values())
+        return (f"DataPoint(id={self.question_id!r}, "
+                f"tokens_after_inj={len(self.after_injection_tokens)}, "
+                f"activations={n_act}, judge={self.judge_decision})")
 
 @dataclass
 class ModelGenerationConfig:
@@ -442,6 +449,73 @@ class Experiment:
         with open(filepath, "rb") as f:
             experiment = dill.load(f)
         return experiment
-    
 
+    def load_all_datapoints(self, directory: str, map_location: str | None = 'cpu'):
+        """Load all datapoint files for this experiment from a directory.
 
+        Finds all files matching the experiment's unique_id and name pattern,
+        then loads them in order based on their index ranges.
+
+        Args:
+            directory: Directory containing the datapoint pickle files
+            map_location: Device to load tensors to. Default 'cpu' to avoid GPU OOM.
+        """
+        from experiments.adisi_things.attention_analysis_util import average_attention_to_question, detect_attention_spikes, has_attention_spike
+        from experiments.utils import printdp
+        import glob
+        import re
+
+        # Build pattern to match datapoint files for this experiment
+        base = f"{self.name.replace(' ', '_')}"
+        if self.unique_id:
+            base = f"{self.unique_id}_{base}"
+        base = sanitize_filename(base)
+
+        pattern = os.path.join(directory, f"{base}_datapoints__*.pkl")
+        files = glob.glob(pattern)
+
+        if not files:
+            # Try without unique_id prefix (for older files)
+            pattern = os.path.join(directory, f"*{self.name.replace(' ', '_')}_datapoints__*.pkl")
+            files = glob.glob(pattern)
+
+        if not files:
+            raise FileNotFoundError(f"No datapoint files found matching pattern: {pattern}")
+
+        # Parse start indices from filenames and sort
+        def get_start_index(filepath):
+            match = re.search(r'_datapoints__(\d+)_(\d+)\.pkl$', filepath)
+            if match:
+                return int(match.group(1))
+            return 0
+
+        files.sort(key=get_start_index)
+
+        print(f"Found {len(files)} datapoint files to load:")
+        for f in files:
+            print(f"  - {os.path.basename(f)}")
+
+        attention_results = []
+        spikes_results = []
+        index_over_all_datapoints = 0
+        # Load each file
+        for filepath in files:
+            self.load_datapoints(filepath, map_location=map_location)
+                # Remove any None placeholders that might remain
+            self.datapoints = [dp for dp in self.datapoints if dp is not None]
+
+            print(f"Loaded {len(self.datapoints)} total datapoints")
+            for i in range(len(self.datapoints)):
+                index_over_all_datapoints += 1
+                datapoint = self.datapoints[i]
+                printdp(datapoint, index_over_all_datapoints)
+                datapoint_average_attention = average_attention_to_question(datapoint)
+                attention_results.append(datapoint_average_attention)
+                print("average_attention_to_question:", datapoint_average_attention)
+
+                datapoint_spikes_result = detect_attention_spikes(datapoint, threshold=0.18, consecutive=2)
+                print(f"detect_attention_spikes: has_spike={datapoint_spikes_result['has_spike']}, spike_number={len(datapoint_spikes_result['spike_indices'])}")
+                spikes_results.append(datapoint_spikes_result)
+            self.datapoints = [] # clear the datapoints list to save memory
+            print("----------------------------------------------------------")
+        return attention_results, spikes_results
