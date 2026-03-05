@@ -460,7 +460,7 @@ class Experiment:
             directory: Directory containing the datapoint pickle files
             map_location: Device to load tensors to. Default 'cpu' to avoid GPU OOM.
         """
-        from experiments.adisi_things.attention_analysis_util import average_attention_to_question, detect_attention_spikes, has_attention_spike
+        from experiments.adisi_things.attention_analysis_util import average_attention_to_question, detect_attention_spikes, has_attention_spike, attention_to_question_per_token
         from experiments.utils import printdp
         import glob
         import re
@@ -497,6 +497,7 @@ class Experiment:
 
         attention_results = []
         spikes_results = []
+        attention_to_question_per_token_results = []
         index_over_all_datapoints = 0
         # Load each file
         for filepath in files:
@@ -509,7 +510,11 @@ class Experiment:
                 index_over_all_datapoints += 1
                 datapoint = self.datapoints[i]
                 printdp(datapoint, index_over_all_datapoints)
-                datapoint_average_attention = average_attention_to_question(datapoint)
+                datapoint_attention_to_question_per_token = attention_to_question_per_token(datapoint)
+                attention_to_question_per_token_results.append(datapoint_attention_to_question_per_token)
+
+                datapoint_average_attention = sum(datapoint_attention_to_question_per_token)/len(datapoint_attention_to_question_per_token) \
+                    if datapoint_attention_to_question_per_token else 0.0 # average_attention_to_question(datapoint)
                 attention_results.append(datapoint_average_attention)
                 print("average_attention_to_question:", datapoint_average_attention)
 
