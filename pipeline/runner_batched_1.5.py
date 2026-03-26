@@ -23,6 +23,7 @@ from time import time
 
 
 
+
 sys.stderr = sys.stdout
 sys.stdout.reconfigure(line_buffering=True) #type: ignore
 PROJECT_HOME = os.getcwd()
@@ -68,11 +69,11 @@ from pipeline.interface import (
     ActivationCapturerV2, Experiment,  ModelGenerationConfig, JudgeGenerationConfig,
     SamplingParams
 )
-from pipeline.dataset_loaders import aggregated_dataset_loader, aggregate_shuffle_strategy, SimpleDatasetLoader, MATH500Loader, OneSolutionSimpleLoader, AIMELoader
+from pipeline.dataset_loaders import aggregated_dataset_loader, aggregate_shuffle_strategy, SimpleDatasetLoader, MATH500Loader, OneSolutionSimpleLoader
 from pipeline.judge_correctness import JudgeDecision, CorrectnessJudge
 from pipeline.hooks import AttentionHeadClipper, AttentionMapCapturerClipActivationsV2
 from pipeline.injections import (
-    SunWeightRedirectInjection, EmptyInjection,
+    SunWeightRedirectInjection,
 )
 
 from pipeline.stops import SentenceEndStopCondition, EOSTokenStopCondition, ImmediateStopCondition
@@ -84,16 +85,20 @@ from pipeline.prompts import ShortAnswerPromptTemplate, MathEvaluatorJudgePrompt
 
 
 output_dir = "/home/ADV_2526a/evyataroren/inter_2025/artifacts"
-model_path = "/home/ADV_2526a/evyataroren/inter_2025/models/DS-qwen-7B/DeepSeek-R1-Distill-Qwen-7B"
+model_path = "/home/ADV_2526a/evyataroren/inter_2025/models/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
 judge_model_path = "/home/ADV_2526a/evyataroren/inter_2025/models/DS-qwen-7B/DeepSeek-R1-Distill-Qwen-7B"
 dataset_path = "/home/ADV_2526a/evyataroren/inter_2025/datasets/datasets"
 
 
+
+
+
+
 model_config = ModelGenerationConfig(
-    model_name="DS/Qwen-7B",
+    model_name="DS/Qwen-1.5",
     model_path=model_path,
     should_stop=ImmediateStopCondition(),
-    get_injection=EmptyInjection(),
+    get_injection=SunWeightRedirectInjection(),
     global_stop=EOSTokenStopCondition(),  # Allow generation after injection
     question_prompt_template=ShortAnswerPromptTemplate(),
     sampling_params=SamplingParams(
@@ -101,7 +106,7 @@ model_config = ModelGenerationConfig(
         top_k=50,
         top_p=0.9,
         take_dumb_max=False,
-        max_new_tokens=4096
+        max_new_tokens=1024
     ),
     dtype=torch.bfloat16
 )
@@ -123,29 +128,27 @@ judge_config = JudgeGenerationConfig(
 )
 
 dataset = aggregated_dataset_loader(
-    datasets=[AIMELoader],  # Simple questions with single definitive answers
+    datasets=[OneSolutionSimpleLoader],  # Simple questions with single definitive answers
     seed=42,
     strategy=aggregate_shuffle_strategy.SEQUENTIAL,
     base_path=dataset_path
 )
 
 def run_generation():
-    
-    # Load model ONCE
-
     experiment = Experiment(
-        name="100_aime_questions_no_injection_for_reference",
-        runner_name="adi",
+        name=f"noclip-1.5B-batched",
+        runner_name="evya",
         dataset=dataset,
         model_generation_config=model_config,
         judge_generation_config=judge_config,
         seed=42,
         unique_id=os.environ.get("SLURM_ARRAY_JOB_ID", str(int(time()))),
-        # attention_boost_factor=1.5,  # multiply attention weights TO query tokens by 1.5 (after softmax), then renormalize
-        # attention_boost_heads={13: [0, 15, 24]},  # boost only heads 0, 15, 24 in layer 13
+        clip_max_val=0,
+        activation_head_clipping={},
         activation_capturer=AttentionMapCapturerClipActivationsV2()
     )
     generator = GenerateBatched(experiment, device='cuda')
+    
 
     print("unique_id", experiment.unique_id)
 
@@ -153,7 +156,7 @@ def run_generation():
     experiment.populate_datapoints(num=100)
     # experiment.datapoints = experiment.datapoints[:50]
     for dp in experiment.datapoints:
-        dp.should_capture_activations = False
+        dp.should_capture_activations = True
 
     print(f"   Loaded {len(experiment.datapoints)} datapoints from dataset.")
 
@@ -188,6 +191,11 @@ def run_generation():
         print(f"  Saving datapoints {start_idx} to {end_idx} to disk...")
         _t_start = time()
         experiment.store_datapoints_only(output_dir, start_index=start_idx, end_index=end_idx, offset_relative_to_experiment=0)
+        
+        # Immediately clear the activations for this batch to avoid OOM
+        print(f"  Clearing activations from memory for datapoints {start_idx} to {end_idx}...")
+        experiment.clear_activations(start_idx, end_idx)
+
         _t_store = time() - _t_start
         print(f"  Stored datapoints {start_idx}-{end_idx} in {_t_store:.3f}s")
         try:
@@ -208,115 +216,37 @@ def run_generation():
     print("   Generation complete!")
 
     # Unload generator to free GPU memory before loading judge
-    generator.unload_model()
-
-    # COMMENTED OUT: Judge - using external judge (Claude) instead of model-based judge
-    # The model-based judge had accuracy issues with semantic matching
-    print("\n3. Running judge validation...")
-    judge = CorrectnessJudge(experiment, device='cuda')
-    judge.run(batch_size=8)
-    judge.unload_model()
+    # Actually, we shouldn't unload if we want to reuse the model across the 28 iterations!
+    # So we skip unload_model here.
     
-    print("\n4. Done generating judge decisions. datapoints populated")
-    
-    # Compute and log judge decision statistics
-    total_judged = len(experiment.datapoints)
-    
-    # Count each decision type
-    decision_counts = {}
-    for decision in JudgeDecision:
-        decision_counts[decision] = sum(1 for dp in experiment.datapoints if dp.judge_decision == decision)
-    
-    
-    # Update wandb with all decision statistics
-    wandb_summary :dict[str,Any]= {
-        "judge_total": total_judged,
-        "num_datapoints_used": total_judged,
-    }
-    for decision, count in decision_counts.items():
-        wandb_summary[f"judge_{decision.value}_count"] = count
-        wandb_summary[f"judge_{decision.value}_ratio"] = count / total_judged if total_judged else 0.0
-    
-    if run is not None:
-        run.summary.update(wandb_summary)
-    
-    print("Updated wandb run with judge results.")
-    
-    print(f"   Judge decision breakdown:")
-    for decision, count in decision_counts.items():
-        ratio = count / total_judged if total_judged else 0.0
-        print(f"      {decision.value}: {count}/{total_judged} ({ratio:.4f})")
-
-    # Verify activations were captured (before clearing)
-    print("\n2a. Verifying captured activations...")
-    total_activations = 0
-    for dp_idx, dp in enumerate(experiment.datapoints):
-        activation_types = [
-            (attr_name, getattr(dp, attr_name))
-            for attr_name in dir(dp)
-            if attr_name in {"activations_after_injection", "activations_injection", "activations_question", "activations_upto_injection"}
-        ]
-        
-        print(f"\n   DataPoint {dp_idx} ({dp.question_id}):")
-        for activation_name, activation_dict in activation_types:
-            if activation_dict is not None:
-                print(f"      {activation_name}:")
-                print(f"         Keys: {list(activation_dict.keys())}")
-                for key, tensor_list in activation_dict.items():
-                    num_tensors = len(tensor_list)
-                    # Build a robust shapes summary for reporting. Handles:
-                    #  - None entries
-                    #  - torch.Tensor entries
-                    #  - nested lists/tuples of tensors
-                    shapes = []
-                    try:
-                        for t in tensor_list:
-                            if t is None:
-                                shapes.append(None)
-                            elif isinstance(t, torch.Tensor):
-                                shapes.append(tuple(t.shape))
-                            elif isinstance(t, (list, tuple)):
-                                inner_shapes = []
-                                for e in t:
-                                    if isinstance(e, torch.Tensor):
-                                        inner_shapes.append(tuple(e.shape))
-                                    else:
-                                        inner_shapes.append(type(e).__name__)
-                                shapes.append(inner_shapes)
-                            else:
-                                shapes.append(type(t).__name__)
-                    except Exception as e:
-                        shapes = [f"<shape-error: {e}>"]
-
-                    # Always print the number of entries and the shapes summary
-                    print(f"            {key}: {num_tensors} tensors, shapes: {shapes}")
-                    total_activations += num_tensors
-            else:
-                print(f"      {activation_name}: None")
-    
-
-
-    
-    print("  Clearing activations from memory...")
-    experiment.clear_activations(0, len(experiment.datapoints))
-
     # Save a lightweight version of all datapoints (no activations) for quick loading
     print("  Saving lightweight datapoints (no activations) for quick analysis...")
     experiment.store_datapoints_without_activations(output_dir)
 
     print("\n" + "=" * 80)
-    print("Experiment Complete!")
+    print(f"Experiment {experiment.name} Complete!")
     print("=" * 80)
-    print(f"\nResults:")
-    print(f"  - Total questions: {len(experiment.datapoints)}")
-    print(f"  - Judge: SKIPPED (use external judge)")
-    print(f"  - Total tokens with activations: {total_activations}")
 
-    if run:
-        run.finish()
-            
-    # Cleanup at end of all jobs
+    run.finish()
+
+
     generator.unload_model()
+
+    print("\n" + "=" * 80)
+    print("Running judge on all experiments...")
+    print("=" * 80)
+    
+    # Run judge for all experiments
+    judge = CorrectnessJudge(experiment, device='cuda')
+    judge.run(batch_size=8)
+        
+        # Save updated lightweight datapoints (with judge decisions)
+    print("  Saving updated lightweight datapoints with judge decisions...")
+    experiment.store_datapoints_without_activations(output_dir)
+        
+    judge.unload_model()
+
+    print("\nAll experiments judged and updated.")
 
 if __name__ == "__main__":
     run_generation()

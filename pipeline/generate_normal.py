@@ -97,16 +97,29 @@ class GenerateSimple:
         Unload model weights and free GPU/CPU memory.
         """
         print("Unloading model...")
+
+        # Remove any registered forward hooks to release references
         if hasattr(self, 'model'):
+            for module in self.model.modules():
+                module._forward_hooks.clear()
+                module._forward_pre_hooks.clear()
+                module._backward_hooks.clear()
             del self.model
+
         if hasattr(self, 'tokenizer'):
             del self.tokenizer
-        
+
+        # Force garbage collection BEFORE clearing CUDA cache
+        import gc
+        gc.collect()
+        gc.collect()  # Run twice for cyclic references
+
         # Clear CUDA cache if using GPU
         if self.device == "cuda" and torch.cuda.is_available():
             torch.cuda.empty_cache()
             torch.cuda.synchronize()
-        
+
+        gc.collect()  # Final cleanup
         print("Model unloaded and memory cleared.")
 
     def generate(self):

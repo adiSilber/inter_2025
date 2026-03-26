@@ -66,12 +66,12 @@ from pipeline.interface import (
     SamplingParams, DataPoint, ActivationCapturer,
     ShouldStop, Injection, ModelPromptTemplate, JudgePromptTemplate
 )
-from pipeline.dataset_loaders import aggregated_dataset_loader, MATH500Loader, aggregate_shuffle_strategy, SimpleDatasetLoader, OneSolutionSimpleLoader
+from pipeline.dataset_loaders import aggregated_dataset_loader, MATH500Loader, aggregate_shuffle_strategy, SimpleDatasetLoader, OneSolutionSimpleLoader, AIMELoader
 from pipeline.generate_normal import GenerateSimple
 from pipeline.judge_correctness import CorrectnessJudge
 from pipeline.hooks import AttentionMapCapturer, AttentionMapCapturerClipActivations
 from pipeline.injections import (
-    SunWeightRedirectInjection, QuadraticFormulaRedirectInjection, NearMissInjection, Math500NearMissInjection,
+    SunWeightRedirectInjection, QuadraticFormulaRedirectInjection, NearMissInjection, Math500NearMissInjection, AIMENearMissInjection,
 )
 
 from pipeline.stops import SentenceEndStopCondition, EOSTokenStopCondition, ImmediateStopCondition
@@ -80,6 +80,13 @@ from pipeline.wandb_utils import experiment_config_for_wandb
 import wandb
 
 
+# Indices of the 74 datapoints that had final answers (0-indexed)
+INDICES_WITH_FINAL_ANSWER = [
+    0, 1, 2, 4, 5, 6, 8, 9, 10, 11, 15, 16, 17, 18, 19, 21, 22, 23, 24, 25,
+    27, 28, 29, 30, 31, 33, 34, 35, 37, 41, 44, 45, 46, 47, 48, 50, 52, 53,
+    54, 56, 58, 59, 61, 62, 64, 65, 67, 68, 69, 70, 72, 73, 74, 75, 76, 77,
+    78, 79, 81, 82, 83, 85, 86, 87, 89, 91, 92, 93, 94, 95, 96, 97, 98, 99
+]
 
 output_dir = "/home/ADV_2526a/evyataroren/inter_2025/artifacts_adisi"
 model_path = "/home/ADV_2526a/evyataroren/inter_2025/models/DS-qwen-7B/DeepSeek-R1-Distill-Qwen-7B"
@@ -88,8 +95,8 @@ dataset_path = "/home/ADV_2526a/evyataroren/inter_2025/datasets/datasets"
 model_config = ModelGenerationConfig(
     model_name="qwen-7B",
     model_path=model_path,
-    should_stop=ImmediateStopCondition(),  # Inject immediately at start
-    get_injection=Math500NearMissInjection(),
+    should_stop=SentenceEndStopCondition(),  # Not immediate - inject after sentence ends (20+ tokens)
+    get_injection=SunWeightRedirectInjection(),  # Sun weight redirect injection
     global_stop=EOSTokenStopCondition(),  # Continue generating until EOS
     question_prompt_template=ShortAnswerPromptTemplate(),
     sampling_params=SamplingParams(
@@ -97,7 +104,7 @@ model_config = ModelGenerationConfig(
         top_k=50,
         top_p=0.9,
         take_dumb_max=False,
-        max_new_tokens=1024
+        max_new_tokens=1024  # Was 1024, increased to avoid truncation and allow full reasoning chains
     ),
     dtype=torch.bfloat16
 )
@@ -118,29 +125,34 @@ judge_config = JudgeGenerationConfig(
 )
 
 dataset = aggregated_dataset_loader(
-    datasets=[MATH500Loader],
+    datasets=[OneSolutionSimpleLoader],
     seed=42,
     strategy=aggregate_shuffle_strategy.SEQUENTIAL,
     base_path=dataset_path
 )
 
 experiment = Experiment(
-    name="adisi_immediate_inject_math500_adjust_injection_no_clipping_no_activations_260303_v1",
+    name="adi_simple_one_answer_sun_weight_sentence_end_WITH_activations",
     runner_name="adisi",
     dataset=dataset,
     model_generation_config=model_config,
     judge_generation_config=judge_config,
     seed=42,
     unique_id=os.environ.get("SLURM_ARRAY_JOB_ID", str(int(time()))) ,
-    activation_capturer=AttentionMapCapturer()  # 10x more aggressive
+    activation_capturer=AttentionMapCapturer()  # No clipping, captures activations
 )
 
 print(f"   Populating datapoints from dataset...")
-experiment.populate_datapoints(num=10)  # Only 10 datapoints for testing
-for dp in experiment.datapoints:
-    dp.should_capture_activations = False
+experiment.populate_datapoints(num=100)
 
-print(f"   Loaded {len(experiment.datapoints)} datapoints from dataset.")
+# AIME-specific filtering (commented out for simple dataset)
+# experiment.datapoints = [experiment.datapoints[i] for i in INDICES_WITH_FINAL_ANSWER]
+
+# Enable activation capturing
+for dp in experiment.datapoints:
+    dp.should_capture_activations = True
+
+print(f"   Loaded {len(experiment.datapoints)} datapoints")
 
 
 def run_generation():
@@ -181,7 +193,7 @@ def run_generation():
     generator = GenerateSimple(experiment, device='cuda')
 
     # Save every N datapoints as they complete to avoid waiting until the end
-    NUM_OBJECTS_IN_PICKLE = 10
+    NUM_OBJECTS_IN_PICKLE = 2  # Small batches to keep file sizes manageable with activations
     # `start` is the global index offset in the original full datapoints list (computed above)
 
     saved_batches = 0
@@ -300,8 +312,6 @@ def run_generation():
                     total_activations += num_tensors
             else:
                 print(f"      {activation_name}: None")
-    
-    
 
 
     # Note: datapoints are saved incrementally during generation.

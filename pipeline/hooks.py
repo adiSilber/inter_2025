@@ -228,9 +228,21 @@ class AttentionMapCapturerClipActivationsV2(ActivationCapturerV2):
             raise ValueError("Experiment config must be passed to AttentionMapCapturer via bind() kwargs")
         self.experiment: Experiment = kwargs["experiment"]
         self.clip_max_val = self.experiment.clip_max_val
-        self.heads_to_clip = self.experiment.activation_head_clipping if self.experiment.activation_head_clipping is not None else {} 
+        self.clip_min_val = self.experiment.clip_min_val
+        self.heads_to_clip = self.experiment.activation_head_clipping if self.experiment.activation_head_clipping is not None else {}
+        self.attention_scale_factor = self.experiment.attention_scale_factor
+        self.attention_scale_layers = self.experiment.attention_scale_layers or set()
+        self.attention_boost_factor = self.experiment.attention_boost_factor
+        self.attention_boost_layers = self.experiment.attention_boost_layers or set()
+        self.attention_boost_heads = self.experiment.attention_boost_heads or {}
         self.model = model
         print("self.clip_max_val", self.clip_max_val)
+        print("self.clip_min_val", self.clip_min_val)
+        print("self.attention_scale_factor", self.attention_scale_factor)
+        print("self.attention_scale_layers", self.attention_scale_layers)
+        print("self.attention_boost_factor", self.attention_boost_factor)
+        print("self.attention_boost_layers", self.attention_boost_layers)
+        print("self.attention_boost_heads", self.attention_boost_heads)
         self.attach_hooks()
 
     def unbind(self):
@@ -272,12 +284,48 @@ class AttentionMapCapturerClipActivationsV2(ActivationCapturerV2):
             if attention_mask is not None:
                 attn_weights = attn_weights + attention_mask
 
+            # Scale attention logits before softmax (only during AFTER_INJECTION mode)
+            if capturer.attention_scale_factor is not None and module.layer_idx in capturer.attention_scale_layers:
+                for dp_idx in range(len(datapoints)):
+                    if modes[dp_idx].value == GenerationMode.AFTER_INJECTION.value:
+                        attn_weights[dp_idx] = attn_weights[dp_idx] * capturer.attention_scale_factor
+
             attn_weights = nn.functional.softmax(
                 attn_weights, dim=-1, dtype=torch.float32
             ).to(query.dtype)
             attn_weights = nn.functional.dropout(
                 attn_weights, p=dropout, training=module.training
             )
+
+            # Boost attention TO query tokens (after softmax), then renormalize
+            # Check if this layer should be boosted (either via attention_boost_layers or attention_boost_heads)
+            boost_heads_for_layer = capturer.attention_boost_heads.get(module.layer_idx, None)
+            should_boost_layer = (module.layer_idx in capturer.attention_boost_layers) or (boost_heads_for_layer is not None)
+
+            if capturer.attention_boost_factor is not None and should_boost_layer:
+                for dp_idx in range(len(datapoints)):
+                    if modes[dp_idx].value == GenerationMode.AFTER_INJECTION.value:
+                        pad_val = pads[dp_idx] if pads is not None and len(pads) > dp_idx else 0
+                        if torch.is_tensor(pad_val):
+                            pad_val = int(pad_val.item())
+                        query_token_indices = capturer.question_indecies_to_clip(datapoints[dp_idx], pad_val)
+                        if query_token_indices:
+                            dev = attn_weights.device
+                            query_indices_tensor = torch.as_tensor(query_token_indices, device=dev)
+
+                            if boost_heads_for_layer is not None:
+                                # Boost only specific heads
+                                # Use proper indexing: head_indices[:, None, None] broadcasts with query_indices[None, None, :]
+                                for head_idx in boost_heads_for_layer:
+                                    attn_weights[dp_idx, head_idx, :, query_indices_tensor] *= capturer.attention_boost_factor
+                                    # Renormalize this head
+                                    attn_weights[dp_idx, head_idx] = attn_weights[dp_idx, head_idx] / attn_weights[dp_idx, head_idx].sum(dim=-1, keepdim=True)
+                            else:
+                                # Boost ALL heads in this layer
+                                attn_weights[dp_idx, :, :, query_indices_tensor] *= capturer.attention_boost_factor
+                                # Renormalize so attention weights sum to 1 along the key dimension
+                                attn_weights[dp_idx] = attn_weights[dp_idx] / attn_weights[dp_idx].sum(dim=-1, keepdim=True)
+
             batch_size = len(datapoints)
 
 
@@ -315,9 +363,13 @@ class AttentionMapCapturerClipActivationsV2(ActivationCapturerV2):
                     dev = clipped.device
                     head_indices_tensor = torch.as_tensor(head_indices, device=dev)[:, None]  # (n_heads, 1)
                     token_indecies_tensor = torch.as_tensor(token_indecies, device=dev)[None, :]  # (1, n_tokens)
+                    
                     clipped[dp_idx, head_indices_tensor, :, token_indecies_tensor] = torch.clamp(
-                        clipped[dp_idx, head_indices_tensor, :, token_indecies_tensor], max=capturer.clip_max_val
+                        clipped[dp_idx, head_indices_tensor, :, token_indecies_tensor],
+                        min=capturer.clip_min_val,
+                        max=capturer.clip_max_val
                     )
+
                     # Record clipped activations
                     if dp.should_capture_activations:
                         target_dict = dp.activations_after_injection
@@ -360,6 +412,7 @@ class AttentionHeadClipper(ActivationCapturerV2):
             raise ValueError("Experiment config must be passed to AttentionMapCapturer via bind() kwargs")
         self.experiment: Experiment = kwargs["experiment"]
         self.clip_max_val = self.experiment.clip_max_val
+        self.clip_min_val = self.experiment.clip_min_val
         self.heads_to_clip = self.experiment.activation_head_clipping if self.experiment.activation_head_clipping is not None else {} 
         self.model = cast(HookedTransformer, model)
         self.attach_hooks()
@@ -379,7 +432,7 @@ class AttentionHeadClipper(ActivationCapturerV2):
             raise ValueError("Must call bind() before using context manager")
         model = cast(HookedTransformer, self.model)
         
-        def _clipping_hook_fn(tensor, hook: HookPoint, head_indices: list[int], max_val):
+        def _clipping_hook_fn(tensor, hook: HookPoint, head_indices: list[int], max_val, min_val=None):
             datapoints = self._batch_context_store["datapoints"]
             modes = self._forward_context_store["modes"]
             pads = self._batch_context_store["num_pad_tokens"]
@@ -408,8 +461,10 @@ class AttentionHeadClipper(ActivationCapturerV2):
                 
                 pad_val = pads[dp_index] if pads is not None and len(pads) > dp_index else 0
                 token_indecies = self.question_indecies_to_clip(dp, pad_val)
+                
                 tensor[dp_index, head_indices, :, token_indecies] = torch.clamp(
                     tensor[dp_index, head_indices, :, token_indecies],
+                    min=min_val,
                     max=max_val,
                 )
 
@@ -422,7 +477,7 @@ class AttentionHeadClipper(ActivationCapturerV2):
 
         for layer_idx in range(model.cfg.n_layers):
             hook_name = f"blocks.{layer_idx}.attn.hook_pattern"
-            hook = partial(_clipping_hook_fn, head_indices=self.heads_to_clip.get(layer_idx, []), max_val=self.clip_max_val)
+            hook = partial(_clipping_hook_fn, head_indices=self.heads_to_clip.get(layer_idx, []), max_val=self.clip_max_val, min_val=self.clip_min_val)
             model.add_hook(hook_name, hook)
 
     def remove_hooks(self) -> None:

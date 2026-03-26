@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 import torch
 import dill
 import io
-from pathvalidate import sanitize_filename
+from pathvalidate import sanitize_filepath
 
 
 class CPUUnpickler(dill.Unpickler):
@@ -266,7 +266,15 @@ class Experiment:
     unique_id: Optional[str] = None  # 8-digit id for experiment/datapoint filenames; set by runner so all array jobs share it
 
     activation_head_clipping : Optional[dict[int,list[int]]] = None
-    clip_max_val: float = 1e-6
+    clip_max_val: Optional[float] = None
+    clip_min_val: Optional[float] = None
+    # Scale attention logits (before softmax) - makes attention sharper
+    attention_scale_factor: Optional[float] = None  # e.g., 2.0 to double
+    attention_scale_layers: Optional[set[int]] = None  # e.g., {13} for layer 13 only
+    # Boost attention weights TO query tokens (after softmax) - increases attention to query then renormalizes
+    attention_boost_factor: Optional[float] = None  # e.g., 1.5 to boost by 50%
+    attention_boost_layers: Optional[set[int]] = None  # e.g., {13} for layer 13 only (all heads)
+    attention_boost_heads: Optional[dict[int, list[int]]] = None  # e.g., {13: [0, 15, 24]} for specific heads per layer
     
     def populate_datapoints(self, num: Optional[int]=None):
         count = 0
@@ -292,10 +300,11 @@ class Experiment:
             base = f"{self.name.replace(' ', '_')}"
             if self.unique_id:
                 base = f"{self.unique_id}_{base}"
-            filename = f"{base}_experiment.pkl"
-        filename = sanitize_filename(filename)
+            filename = f"{base}/experiment.pkl"
+        filename = sanitize_filepath(filename)
 
         save_path = os.path.join(save_dir, filename)
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
         if override:
             save_path = save_path
         else:
@@ -362,10 +371,11 @@ class Experiment:
             base = f"{self.name.replace(' ', '_')}"
             if self.unique_id:
                 base = f"{self.unique_id}_{base}"
-            filename = f"{base}_datapoints__{start_index+offset_relative_to_experiment}_{end_index+offset_relative_to_experiment}.pkl"
-        filename = sanitize_filename(filename)
+            filename = f"{base}/datapoints__{start_index+offset_relative_to_experiment}_{end_index+offset_relative_to_experiment}.pkl"
+        filename = sanitize_filepath(filename)
 
         save_path = os.path.join(save_dir, filename)
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
         if override:
             save_path = save_path
         else:
@@ -396,9 +406,10 @@ class Experiment:
             base = f"{self.name.replace(' ', '_')}"
             if self.unique_id:
                 base = f"{self.unique_id}_{base}"
-            filename = f"{base}_datapoints_NO_ACTIVATIONS.pkl"
-        filename = sanitize_filename(filename)
+            filename = f"{base}/datapoints_NO_ACTIVATIONS.pkl"
+        filename = sanitize_filepath(filename)
         save_path = os.path.join(save_dir, filename)
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
         # Create shallow copies of datapoints with cleared activations
         light_datapoints = []
@@ -460,31 +471,45 @@ class Experiment:
             directory: Directory containing the datapoint pickle files
             map_location: Device to load tensors to. Default 'cpu' to avoid GPU OOM.
         """
-        from experiments.adisi_things.attention_analysis_util import average_attention_to_question, detect_attention_spikes, has_attention_spike, attention_to_question_per_token
+        from experiments.adisi_things.attention_analysis_util import average_attention_to_question, detect_attention_spikes, has_attention_spike, attention_to_question_per_token, attention_to_question_per_layer_per_token
         from experiments.utils import printdp
         import glob
         import re
-
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         # Build pattern to match datapoint files for this experiment
         base = f"{self.name.replace(' ', '_')}"
         if self.unique_id:
             base = f"{self.unique_id}_{base}"
-        base = sanitize_filename(base)
+        base = sanitize_filepath(base)
 
-        pattern = os.path.join(directory, f"{base}_datapoints__*.pkl")
+        # Try new pattern first: subdirectory structure
+        pattern = os.path.join(directory, f"{base}/datapoints__*.pkl")
         files = glob.glob(pattern)
 
         if not files:
-            # Try without unique_id prefix (for older files)
+            # Try old pattern: flat files with _datapoints__ in filename
+            pattern = os.path.join(directory, f"{base}_datapoints__*.pkl")
+            files = glob.glob(pattern)
+
+        if not files:
+            # Try without unique_id prefix (for older files) - subdirectory
+            pattern = os.path.join(directory, f"*{self.name.replace(' ', '_')}/datapoints__*.pkl")
+            files = glob.glob(pattern)
+
+        if not files:
+            # Try without unique_id prefix (for older files) - flat
             pattern = os.path.join(directory, f"*{self.name.replace(' ', '_')}_datapoints__*.pkl")
             files = glob.glob(pattern)
 
         if not files:
-            raise FileNotFoundError(f"No datapoint files found matching pattern: {pattern}")
+            raise FileNotFoundError(f"No datapoint files found matching pattern. Tried:\n"
+                                    f"  - {directory}/{base}/datapoints__*.pkl\n"
+                                    f"  - {directory}/{base}_datapoints__*.pkl")
 
         # Parse start indices from filenames and sort
         def get_start_index(filepath):
-            match = re.search(r'_datapoints__(\d+)_(\d+)\.pkl$', filepath)
+            # Handle both patterns: /datapoints__n_m.pkl and _datapoints__n_m.pkl
+            match = re.search(r'[/_]datapoints__(\d+)_(\d+)\.pkl$', filepath)
             if match:
                 return int(match.group(1))
             return 0
@@ -498,6 +523,7 @@ class Experiment:
         attention_results = []
         spikes_results = []
         attention_to_question_per_token_results = []
+        per_layer_attention_to_question_results = []  # New: per-layer attention
         index_over_all_datapoints = 0
         # Load each file
         for filepath in files:
@@ -513,14 +539,18 @@ class Experiment:
                 datapoint_attention_to_question_per_token = attention_to_question_per_token(datapoint)
                 attention_to_question_per_token_results.append(datapoint_attention_to_question_per_token)
 
+                # New: compute per-layer attention (vectorized)
+                datapoint_per_layer_attention = attention_to_question_per_layer_per_token(datapoint)
+                per_layer_attention_to_question_results.append(datapoint_per_layer_attention)
+
                 datapoint_average_attention = sum(datapoint_attention_to_question_per_token)/len(datapoint_attention_to_question_per_token) \
                     if datapoint_attention_to_question_per_token else 0.0 # average_attention_to_question(datapoint)
                 attention_results.append(datapoint_average_attention)
                 print("average_attention_to_question:", datapoint_average_attention)
 
-                datapoint_spikes_result = detect_attention_spikes(datapoint, threshold=0.18, consecutive=2)
+                datapoint_spikes_result = detect_attention_spikes(datapoint, threshold=0.25, consecutive=2)
                 print(f"detect_attention_spikes: has_spike={datapoint_spikes_result['has_spike']}, spike_number={len(datapoint_spikes_result['spike_indices'])}")
                 spikes_results.append(datapoint_spikes_result)
             self.datapoints = [] # clear the datapoints list to save memory
             print("----------------------------------------------------------")
-        return attention_results, spikes_results
+        return attention_results, spikes_results, attention_to_question_per_token_results, per_layer_attention_to_question_results
